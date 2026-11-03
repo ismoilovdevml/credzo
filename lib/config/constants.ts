@@ -13,10 +13,8 @@ export const SESSION_CONFIG = {
 
 // Password Configuration
 export const PASSWORD_CONFIG = {
-  MIN_LENGTH: 8,
-  REQUIRE_UPPERCASE: true,
-  REQUIRE_LOWERCASE: true,
-  REQUIRE_NUMBER: true,
+  MIN_LENGTH: 10,
+  MAX_LENGTH: 256,
 } as const;
 
 // Audit Log Configuration
@@ -142,5 +140,4 @@ export const REGEX_PATTERNS = {
   EMAIL: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   USERNAME: /^[a-zA-Z0-9_]+$/,
   SLUG: /^[a-z0-9-]+$/,
-  PASSWORD: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/,
 } as const;

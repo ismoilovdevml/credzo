@@ -241,7 +241,7 @@ const INVITATIONS_TABLE = `
     organization_id TEXT NOT NULL,
     email TEXT NOT NULL,
     role TEXT NOT NULL,
-    invited_by TEXT NOT NULL,
+    invited_by TEXT,
     token TEXT NOT NULL UNIQUE,
     status TEXT DEFAULT 'pending',
     expires_at TEXT NOT NULL,
@@ -333,6 +333,9 @@ function initializeDatabase(database: Database.Database) {
   }
   if (isColumnNotNull(database, "credentials", "created_by")) {
     rebuildTable(database, "credentials", CREDENTIALS_TABLE);
+  }
+  if (isColumnNotNull(database, "invitations", "invited_by")) {
+    rebuildTable(database, "invitations", INVITATIONS_TABLE);
   }
 
   database.exec(INDEXES);
@@ -636,7 +639,7 @@ interface InvitationRow {
   organization_id: string;
   email: string;
   role: string;
-  invited_by: string;
+  invited_by: string | null;
   token: string;
   status: string;
   expires_at: string;
@@ -1692,7 +1695,7 @@ function mapInvitationFromDb(row: InvitationRow): Invitation {
     organizationId: row.organization_id,
     email: row.email,
     role: row.role,
-    invitedBy: row.invited_by,
+    invitedBy: row.invited_by ?? undefined,
     token: row.token,
     status: row.status,
     expiresAt: row.expires_at,

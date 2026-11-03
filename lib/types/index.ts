@@ -132,7 +132,7 @@ export interface Invitation {
   organizationId: string;
   email: string;
   role: OrganizationRole | string;
-  invitedBy: string;
+  invitedBy?: string;
   token: string;
   status: InvitationStatus | string;
   expiresAt: string;

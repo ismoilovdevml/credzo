@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertCircle, FolderPlus, Search } from "lucide-react";
@@ -48,20 +48,23 @@ export function SaveCredentialModal({ open, onClose, password }: SaveCredentialM
   }, [open, attempt]);
 
   const allProjects = state.status === "ready" ? state.projects : [];
-  const writable = useMemo(
-    () => allProjects.filter((project) => project.currentUserRole === "owner" || project.currentUserRole === "editor"),
-    [allProjects]
+  const writable = allProjects.filter(
+    (project) => project.currentUserRole === "owner" || project.currentUserRole === "editor"
   );
-  const visible = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    return term ? writable.filter((project) => project.name.toLowerCase().includes(term)) : writable;
-  }, [writable, query]);
+  const term = query.trim().toLowerCase();
+  const visible = term ? writable.filter((project) => project.name.toLowerCase().includes(term)) : writable;
   const selected = writable.find((project) => project.id === selectedId) ?? null;
 
   const handleContinue = () => {
     if (!selected) return;
-    const params = new URLSearchParams({ password });
-    router.push(`/dashboard/projects/${encodeURIComponent(selected.id)}/credentials/new?${params.toString()}`);
+    // Hand the secret over through sessionStorage so it never lands in the URL, history or logs.
+    // The credential form reads it once and removes it.
+    try {
+      sessionStorage.setItem("credzo:prefill-secret", password);
+    } catch {
+      // Storage unavailable (private mode): the form simply opens without a prefilled value.
+    }
+    router.push(`/dashboard/projects/${encodeURIComponent(selected.id)}/credentials/new?prefill=generator`);
   };
 
   const retry = () => {
