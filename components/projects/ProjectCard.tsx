@@ -111,7 +111,7 @@ export function ProjectCard({ project, now, currentUserId }: ProjectCardProps) {
 
       <EnvironmentBreakdown environments={project.environments} total={project.credentialCount} />
 
-      <div className="mt-auto flex items-center gap-3 border-t border-line-soft pt-3.5 text-[13.5px] text-muted">
+      <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line-soft pt-3.5 text-[13.5px] text-muted">
         <span className="flex items-center gap-1.5">
           <KeyRound className="h-[15px] w-[15px]" aria-hidden="true" />
           {pluralize(project.credentialCount, "credential")}

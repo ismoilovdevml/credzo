@@ -1,17 +1,26 @@
+import { execFileSync } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { request, type FullConfig } from "@playwright/test";
 import { ADMIN_PASSWORD, ADMIN_STORAGE_STATE, ADMIN_USER, originHeaders } from "./env";
 
 /**
- * Ensures the e2e admin account exists and stores its signed-in state
- * at tests/e2e/.auth/admin.json for the `adminPage` fixture.
+ * Seeds the demo organisation the role-based specs rely on (idempotent: a
+ * no-op when the demo owner exists), then ensures the e2e admin account exists
+ * and stores its signed-in state at tests/e2e/.auth/admin.json for the
+ * `adminPage` fixture.
  *
- * On a fresh DATA_DIR the first signup becomes the platform admin.
+ * On a fresh DATA_DIR the seeded demo owner is the first user and therefore
+ * the platform admin.
  */
 export default async function globalSetup(config: FullConfig): Promise<void> {
   const baseURL = config.projects[0]?.use.baseURL;
   if (!baseURL) throw new Error("globalSetup: no baseURL configured");
+
+  execFileSync(process.execPath, [path.join(__dirname, "..", "..", "scripts", "seed-demo.mjs")], {
+    env: { ...process.env, BASE_URL: baseURL },
+    stdio: "inherit",
+  });
 
   const ctx = await request.newContext({ baseURL, extraHTTPHeaders: originHeaders(baseURL) });
   try {

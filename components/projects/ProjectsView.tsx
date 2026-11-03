@@ -315,7 +315,7 @@ export function ProjectsView() {
           </p>
           <ul className={gridClass} data-testid="projects-grid" aria-label="Projects">
             {visible.map((project) => (
-              <li key={project.id} className="flex [&>a]:flex-1">
+              <li key={project.id} className="flex min-w-0 [&>a]:min-w-0 [&>a]:flex-1">
                 <ProjectCard
                   project={project}
                   now={state.loadedAt}
@@ -323,7 +323,7 @@ export function ProjectsView() {
                 />
               </li>
             ))}
-            <li className="flex [&>a]:flex-1">
+            <li className="flex min-w-0 [&>a]:min-w-0 [&>a]:flex-1">
               <NewProjectTile />
             </li>
           </ul>
