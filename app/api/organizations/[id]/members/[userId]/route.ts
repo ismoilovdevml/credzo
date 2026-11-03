@@ -19,6 +19,7 @@ import {
   requireOrganizationAccess,
 } from "@/lib/authorization";
 import { logMemberRemoved, logMemberRoleChanged } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/rate-limit";
 import { NotFoundError, ValidationError } from "@/lib/utils/errors";
 import { readRequiredEnum, requireObject } from "@/lib/utils/input";
 import { getUserSummary } from "@/lib/utils/projects";
@@ -54,6 +55,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     if (!updated) throw new NotFoundError("Member");
 
     logMemberRoleChanged(
+      getRequestMeta(request.headers),
       authContext.user.id,
       organization.id,
       userId,
@@ -102,6 +104,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
     })();
 
     logMemberRemoved(
+      getRequestMeta(request.headers),
       authContext.user.id,
       organization.id,
       userId,

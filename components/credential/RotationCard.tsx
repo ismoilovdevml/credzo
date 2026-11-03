@@ -1,5 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import { Badge, Card, CardHeader } from "@/components/ui";
+import { RotateCw } from "lucide-react";
+import { Badge, Button, Card, CardHeader } from "@/components/ui";
 import { formatDate, formatDateTime, formatDaysFromNow, getRotationStatus } from "./format";
 
 export interface RotationCardProps {
@@ -9,10 +13,14 @@ export interface RotationCardProps {
   now: number;
   /** Shown when there is no policy and the user may set one. */
   editHref?: string;
+  /** Records a rotation done outside Credzo (editors only); shown when there is a policy. */
+  onMarkRotated?: () => Promise<void>;
 }
 
 /** Rotation policy, last rotation and the next due date with an on-schedule / due / overdue badge. */
-export function RotationCard({ rotationDays, lastRotatedAt, createdAt, now, editHref }: RotationCardProps) {
+export function RotationCard({ rotationDays, lastRotatedAt, createdAt, now, editHref, onMarkRotated }: RotationCardProps) {
+  const [marking, setMarking] = useState(false);
+
   if (!rotationDays) {
     return (
       <Card>
@@ -75,6 +83,28 @@ export function RotationCard({ rotationDays, lastRotatedAt, createdAt, now, edit
           </dd>
         </div>
       </dl>
+      {onMarkRotated && (
+        <div className="border-t border-line-soft px-5 py-3.5">
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<RotateCw />}
+            loading={marking}
+            onClick={async () => {
+              setMarking(true);
+              try {
+                await onMarkRotated();
+              } finally {
+                setMarking(false);
+              }
+            }}
+            title="Record that this secret was changed outside Credzo"
+            data-testid="mark-rotated"
+          >
+            Mark rotated
+          </Button>
+        </div>
+      )}
     </Card>
   );
 }

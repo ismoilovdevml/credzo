@@ -68,6 +68,7 @@ const ACTIONS: Record<string, ActionMeta> = {
   [AuditAction.COPIED]: { label: "Copied", tone: "info", verb: "copied", withNoun: true },
   [AuditAction.EXPORTED]: { label: "Exported", tone: "warn", verb: "exported", withNoun: true },
   [AuditAction.INVITED]: { label: "Invited", tone: "accent", verb: "invited" },
+  [AuditAction.INVITATION_REVOKED]: { label: "Invitation revoked", tone: "neutral", verb: "revoked the invitation for" },
   [AuditAction.REMOVED]: { label: "Removed", tone: "danger", verb: "removed" },
   [AuditAction.ROLE_CHANGED]: { label: "Role changed", tone: "neutral", verb: "changed the role of" },
   [AuditAction.LOGIN]: { label: "Sign-in", tone: "neutral", verb: "signed in", noTarget: true },
@@ -98,7 +99,10 @@ export const ACTION_GROUPS: { label: string; actions: string[] }[] = [
     label: "Projects & credentials",
     actions: [AuditAction.CREATED, AuditAction.UPDATED, AuditAction.DELETED, AuditAction.ACCESSED, AuditAction.EXPORTED],
   },
-  { label: "Members", actions: [AuditAction.INVITED, AuditAction.REMOVED, AuditAction.ROLE_CHANGED] },
+  {
+    label: "Members",
+    actions: [AuditAction.INVITED, AuditAction.INVITATION_REVOKED, AuditAction.REMOVED, AuditAction.ROLE_CHANGED],
+  },
   {
     label: "Account & sign-in",
     actions: [
@@ -198,7 +202,7 @@ export function describeEvent(event: AuditEvent): EventSentence {
   return { possessive: meta?.possessive ?? false, verb, target, suffix };
 }
 
-// ===== Filtering =====
+// ===== Date filters =====
 
 /** Local midnight of a YYYY-MM-DD string, or null when invalid. */
 export function parseDay(value: string): Date | null {
@@ -208,46 +212,15 @@ export function parseDay(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-/** [start, end) bounds in ms for the from/to filters. */
-export function dateBounds(filters: Pick<AuditFilters, "from" | "to">): { start: number | null; end: number | null } {
+/** The from/to day filters as inclusive ISO timestamps for the API ("" when unset or invalid). */
+export function dateRange(filters: Pick<AuditFilters, "from" | "to">): { from: string; to: string } {
   const from = parseDay(filters.from);
   const to = parseDay(filters.to);
-  let end: number | null = null;
-  if (to) {
-    to.setDate(to.getDate() + 1);
-    end = to.getTime();
-  }
-  return { start: from ? from.getTime() : null, end };
-}
-
-/** Client-side filter applied on top of the server's results (date range, free text, and anything the server ignored). */
-export function matchesFilters(event: AuditEvent, filters: AuditFilters, actor: string): boolean {
-  if (filters.action && event.action !== filters.action) return false;
-  if (filters.resource && event.resourceType !== filters.resource) return false;
-  if (filters.user && event.userId !== filters.user) return false;
-
-  const { start, end } = dateBounds(filters);
-  if (start !== null || end !== null) {
-    const time = Date.parse(event.timestamp);
-    if (start !== null && time < start) return false;
-    if (end !== null && time >= end) return false;
-  }
-
-  const term = filters.search.trim().toLowerCase();
-  if (!term) return true;
-  const haystack = [
-    actor,
-    event.action,
-    actionLabel(event.action),
-    event.resourceType,
-    resourceLabel(event.resourceType),
-    event.resourceId ?? "",
-    event.ipAddress ?? "",
-    event.details ? JSON.stringify(event.details) : "",
-  ]
-    .join("\n")
-    .toLowerCase();
-  return haystack.includes(term);
+  if (to) to.setDate(to.getDate() + 1);
+  return {
+    from: from ? from.toISOString() : "",
+    to: to ? new Date(to.getTime() - 1).toISOString() : "",
+  };
 }
 
 // ===== Time =====

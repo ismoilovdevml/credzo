@@ -74,7 +74,8 @@ export function CredentialDetailsForm({ type, values, onChange, errors, onSubmit
           onChange={(environment) => update({ environment })}
           options={ENVIRONMENT_OPTIONS.map((option) => ({
             value: option.value,
-            label: <span data-testid={`env-${option.value}`}>{option.label}</span>,
+            label: option.label,
+            testId: `env-${option.value}`,
           }))}
           className="w-fit"
         />

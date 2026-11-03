@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { cn } from "@/lib/utils/cn";
+import type { DataAttributes } from "./types";
 
 interface TabsContextValue {
   value: string;
@@ -76,7 +77,7 @@ export function TabList({ className, children, ...props }: HTMLAttributes<HTMLDi
   );
 }
 
-export interface TabProps {
+export interface TabProps extends DataAttributes {
   value: string;
   children: ReactNode;
   /** Muted number after the label. */
@@ -85,7 +86,7 @@ export interface TabProps {
   className?: string;
 }
 
-export function Tab({ value, children, count, disabled, className }: TabProps) {
+export function Tab({ value, children, count, disabled, className, ...rest }: TabProps) {
   const { value: active, onValueChange, baseId } = useTabs();
   const selected = active === value;
   return (
@@ -103,6 +104,7 @@ export function Tab({ value, children, count, disabled, className }: TabProps) {
         selected ? "border-accent font-semibold text-accent-ink" : "border-transparent font-medium text-ink-2 hover:text-ink",
         className
       )}
+      {...rest}
     >
       {children}
       {count !== undefined && <span className="font-medium text-muted">{count}</span>}

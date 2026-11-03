@@ -1,21 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ApiError, api } from "@/lib/api-client";
 import type { AuditEvent } from "./audit-model";
 
 export const PAGE_SIZE = 50;
-/** The API's search scans this many of the most recent events. */
-export const SEARCH_LIMIT = 1000;
-
-export class AuditRequestError extends Error {
-  constructor(
-    message: string,
-    readonly status: number
-  ) {
-    super(message);
-    this.name = "AuditRequestError";
-  }
-}
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
@@ -50,61 +39,30 @@ export interface AuditQuery {
   action: string;
   resourceType: string;
   userId: string;
-  /** Server-side search; it ignores the other filters and pagination. */
   search: string;
+  /** ISO timestamps (inclusive bounds); empty = unbounded. */
+  from: string;
+  to: string;
 }
 
 async function fetchAuditPage(query: AuditQuery, offset: number, signal?: AbortSignal): Promise<AuditPage> {
-  const params = new URLSearchParams();
-  const searching = query.search !== "";
-  if (searching) {
-    params.set("search", query.search);
-    params.set("limit", String(SEARCH_LIMIT));
-  } else {
-    if (query.action) params.set("action", query.action);
-    if (query.resourceType) params.set("resourceType", query.resourceType);
-    if (query.userId) params.set("userId", query.userId);
-    params.set("limit", String(PAGE_SIZE));
-    params.set("offset", String(offset));
+  const { scope, ...filters } = query;
+  const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) params.set(key, value);
   }
 
-  let response: Response;
-  try {
-    response = await fetch(`/api/organizations/${encodeURIComponent(query.scope)}/audit?${params}`, {
-      credentials: "same-origin",
-      cache: "no-store",
-      signal,
-    });
-  } catch (error) {
-    if (signal?.aborted) throw error;
-    throw new AuditRequestError("Network error. Check your connection and try again.", 0);
-  }
-
-  if (response.status === 401) {
-    const next = window.location.pathname + window.location.search;
-    window.location.assign(`/login?next=${encodeURIComponent(next)}`);
-    throw new AuditRequestError("Your session has expired. Please sign in again.", 401);
-  }
-
-  const payload: unknown = await response.json().catch(() => null);
-  if (!response.ok || !isObject(payload) || payload.success !== true || !isObject(payload.data)) {
-    const message =
-      isObject(payload) && typeof payload.error === "string" && payload.error
-        ? payload.error
-        : `Couldn't load the audit log (${response.status}).`;
-    throw new AuditRequestError(message, response.status);
-  }
-
-  const data = payload.data;
-  const rawLogs = Array.isArray(data.logs) ? data.logs : [];
+  const data = await api.get<unknown>(`/api/organizations/${encodeURIComponent(scope)}/audit?${params}`, {
+    signal,
+    fallbackError: "Couldn't load the audit log.",
+  });
+  const rawLogs = isObject(data) && Array.isArray(data.logs) ? data.logs : [];
   const events = rawLogs.map(toEvent).filter((event): event is AuditEvent => event !== null);
-  const pagination = isObject(data.pagination) ? data.pagination : null;
-  const totalValue = pagination?.total ?? data.total;
-  const total = typeof totalValue === "number" ? totalValue : null;
+  const pagination = isObject(data) && isObject(data.pagination) ? data.pagination : null;
+  const total = typeof pagination?.total === "number" ? pagination.total : null;
 
   let hasMore: boolean;
-  if (searching) hasMore = false;
-  else if (typeof pagination?.hasMore === "boolean") hasMore = pagination.hasMore;
+  if (typeof pagination?.hasMore === "boolean") hasMore = pagination.hasMore;
   else if (total !== null) hasMore = offset + rawLogs.length < total;
   else hasMore = rawLogs.length === PAGE_SIZE;
 
@@ -118,7 +76,7 @@ interface State {
   fetched: number;
   total: number | null;
   hasMore: boolean;
-  error: AuditRequestError | null;
+  error: ApiError | null;
   loadingMore: boolean;
   loadMoreError: string | null;
 }
@@ -135,7 +93,7 @@ const INITIAL: State = {
 };
 
 const errorFrom = (error: unknown) =>
-  error instanceof AuditRequestError ? error : new AuditRequestError("Couldn't load the audit log.", 0);
+  error instanceof ApiError ? error : new ApiError(0, "Couldn't load the audit log.");
 
 /** Loads audit events for `query` (null = don't load) with offset pagination. Memoise `query`: a new object refetches. */
 export function useAuditEvents(query: AuditQuery | null) {

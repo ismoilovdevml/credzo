@@ -6,6 +6,12 @@ import { AuditAction, AuditResource } from "./types";
  * Audit logging service for tracking all important actions
  */
 
+/** Where an audited request came from (see getRequestMeta in lib/rate-limit). */
+export interface RequestMeta {
+  ipAddress: string;
+  userAgent: string;
+}
+
 export interface AuditLogData {
   organizationId?: string | null;
   /** null when there is no known actor (e.g. a failed sign-in for an unknown username). */
@@ -34,6 +40,7 @@ export function logAudit(data: AuditLogData): void {
  * Log project creation
  */
 export function logProjectCreated(
+  meta: RequestMeta,
   userId: string,
   projectId: string,
   projectName: string,
@@ -41,6 +48,7 @@ export function logProjectCreated(
   metadata?: Record<string, unknown>
 ): void {
   logAudit({
+    ...meta,
     organizationId,
     userId,
     action: AuditAction.CREATED,
@@ -57,6 +65,7 @@ export function logProjectCreated(
  * Log project update
  */
 export function logProjectUpdated(
+  meta: RequestMeta,
   userId: string,
   projectId: string,
   projectName: string,
@@ -64,6 +73,7 @@ export function logProjectUpdated(
   organizationId?: string
 ): void {
   logAudit({
+    ...meta,
     organizationId,
     userId,
     action: AuditAction.UPDATED,
@@ -80,12 +90,14 @@ export function logProjectUpdated(
  * Log project deletion
  */
 export function logProjectDeleted(
+  meta: RequestMeta,
   userId: string,
   projectId: string,
   projectName: string,
   organizationId?: string
 ): void {
   logAudit({
+    ...meta,
     organizationId,
     userId,
     action: AuditAction.DELETED,
@@ -101,6 +113,7 @@ export function logProjectDeleted(
  * Log credential creation
  */
 export function logCredentialCreated(
+  meta: RequestMeta,
   userId: string,
   credentialId: string,
   credentialName: string,
@@ -109,6 +122,7 @@ export function logCredentialCreated(
   organizationId?: string
 ): void {
   logAudit({
+    ...meta,
     organizationId,
     userId,
     action: AuditAction.CREATED,
@@ -126,16 +140,16 @@ export function logCredentialCreated(
  * Log credential access (view/read)
  */
 export function logCredentialAccessed(
+  meta: RequestMeta,
   userId: string,
   credentialId: string,
   credentialName: string,
   credentialType: string,
   projectId: string,
-  organizationId?: string,
-  ipAddress?: string,
-  userAgent?: string
+  organizationId?: string
 ): void {
   logAudit({
+    ...meta,
     organizationId,
     userId,
     action: AuditAction.ACCESSED,
@@ -146,8 +160,6 @@ export function logCredentialAccessed(
       credentialType,
       projectId,
     },
-    ipAddress,
-    userAgent,
   });
 }
 
@@ -155,6 +167,7 @@ export function logCredentialAccessed(
  * Log credential update
  */
 export function logCredentialUpdated(
+  meta: RequestMeta,
   userId: string,
   credentialId: string,
   credentialName: string,
@@ -162,6 +175,7 @@ export function logCredentialUpdated(
   organizationId?: string
 ): void {
   logAudit({
+    ...meta,
     organizationId,
     userId,
     action: AuditAction.UPDATED,
@@ -175,9 +189,34 @@ export function logCredentialUpdated(
 }
 
 /**
+ * Log a manual "rotated" mark (the secret was changed outside Credzo)
+ */
+export function logCredentialRotated(
+  meta: RequestMeta,
+  userId: string,
+  credentialId: string,
+  credentialName: string,
+  organizationId?: string
+): void {
+  logAudit({
+    ...meta,
+    organizationId,
+    userId,
+    action: AuditAction.UPDATED,
+    resourceType: AuditResource.CREDENTIAL,
+    resourceId: credentialId,
+    details: {
+      credentialName,
+      rotated: true,
+    },
+  });
+}
+
+/**
  * Log credential deletion
  */
 export function logCredentialDeleted(
+  meta: RequestMeta,
   userId: string,
   credentialId: string,
   credentialName: string,
@@ -185,6 +224,7 @@ export function logCredentialDeleted(
   organizationId?: string
 ): void {
   logAudit({
+    ...meta,
     organizationId,
     userId,
     action: AuditAction.DELETED,
@@ -201,12 +241,14 @@ export function logCredentialDeleted(
  * Log member invitation
  */
 export function logMemberInvited(
+  meta: RequestMeta,
   inviterId: string,
   organizationId: string,
   email: string,
   role: string
 ): void {
   logAudit({
+    ...meta,
     organizationId,
     userId: inviterId,
     action: AuditAction.INVITED,
@@ -219,9 +261,35 @@ export function logMemberInvited(
 }
 
 /**
+ * Log revocation of a pending invitation
+ */
+export function logInvitationRevoked(
+  meta: RequestMeta,
+  revokerId: string,
+  organizationId: string,
+  invitationId: string,
+  email: string,
+  role: string
+): void {
+  logAudit({
+    ...meta,
+    organizationId,
+    userId: revokerId,
+    action: AuditAction.INVITATION_REVOKED,
+    resourceType: AuditResource.MEMBER,
+    resourceId: invitationId,
+    details: {
+      email,
+      role,
+    },
+  });
+}
+
+/**
  * Log member removal
  */
 export function logMemberRemoved(
+  meta: RequestMeta,
   removerId: string,
   organizationId: string,
   removedUserId: string,
@@ -229,6 +297,7 @@ export function logMemberRemoved(
   role: string
 ): void {
   logAudit({
+    ...meta,
     organizationId,
     userId: removerId,
     action: AuditAction.REMOVED,
@@ -245,6 +314,7 @@ export function logMemberRemoved(
  * Log member role change
  */
 export function logMemberRoleChanged(
+  meta: RequestMeta,
   changerId: string,
   organizationId: string,
   targetUserId: string,
@@ -253,6 +323,7 @@ export function logMemberRoleChanged(
   newRole: string
 ): void {
   logAudit({
+    ...meta,
     organizationId,
     userId: changerId,
     action: AuditAction.ROLE_CHANGED,
@@ -267,61 +338,17 @@ export function logMemberRoleChanged(
 }
 
 /**
- * Log project member added
- */
-export function logProjectMemberAdded(
-  organizationId: string,
-  adderId: string,
-  projectId: string,
-  memberId: string,
-  role: string
-): void {
-  logAudit({
-    organizationId,
-    userId: adderId,
-    action: AuditAction.CREATED,
-    resourceType: AuditResource.MEMBER,
-    resourceId: memberId,
-    details: {
-      projectId,
-      role,
-      context: 'project_member',
-    },
-  });
-}
-
-/**
- * Log project member removed
- */
-export function logProjectMemberRemoved(
-  organizationId: string,
-  removerId: string,
-  projectId: string,
-  memberId: string
-): void {
-  logAudit({
-    organizationId,
-    userId: removerId,
-    action: AuditAction.REMOVED,
-    resourceType: AuditResource.MEMBER,
-    resourceId: memberId,
-    details: {
-      projectId,
-      context: 'project_member',
-    },
-  });
-}
-
-/**
  * Log organization update
  */
 export function logOrganizationUpdated(
+  meta: RequestMeta,
   userId: string,
   organizationId: string,
   organizationName: string,
   changes: Record<string, unknown>
 ): void {
   logAudit({
+    ...meta,
     organizationId,
     userId,
     action: AuditAction.UPDATED,
@@ -332,20 +359,6 @@ export function logOrganizationUpdated(
       changes,
     },
   });
-}
-
-/**
- * Get audit logs with filters
- */
-export function getAuditLog(filters?: {
-  organizationId?: string;
-  userId?: string;
-  action?: AuditAction | string;
-  resourceType?: AuditResource | string;
-  limit?: number;
-  offset?: number;
-}): AuditLog[] {
-  return getAuditLogs(filters);
 }
 
 /**
@@ -451,31 +464,6 @@ export function getMemberActivitySummary(organizationId: string): {
 }
 
 /**
- * Search audit logs
- */
-export function searchAuditLogs(
-  organizationId: string,
-  searchTerm: string,
-  limit: number = 50
-): AuditLog[] {
-  const logs = getAuditLogs({ organizationId, limit: 1000 });
-
-  const lowerSearchTerm = searchTerm.toLowerCase();
-
-  return logs
-    .filter((log) => {
-      const detailsStr = log.details ? JSON.stringify(log.details).toLowerCase() : "";
-      return (
-        log.action.toLowerCase().includes(lowerSearchTerm) ||
-        log.resourceType.toLowerCase().includes(lowerSearchTerm) ||
-        (log.resourceId && log.resourceId.toLowerCase().includes(lowerSearchTerm)) ||
-        detailsStr.includes(lowerSearchTerm)
-      );
-    })
-    .slice(0, limit);
-}
-
-/**
  * Format audit log for display
  */
 export function formatAuditLog(log: AuditLog): string {
@@ -522,6 +510,9 @@ export function formatAuditLog(log: AuditLog): string {
 
     case AuditAction.INVITED:
       return `Invited ${details.email} as ${details.role}`;
+
+    case AuditAction.INVITATION_REVOKED:
+      return `Revoked the invitation for ${details.email}`;
 
     case AuditAction.REMOVED:
       return `Removed ${details.removedUsername} (${details.role})`;

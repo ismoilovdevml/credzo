@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -53,31 +53,6 @@ function ToastCard({ message, type, onClose }: { message: string; type: ToastTyp
 
 const viewportClass =
   "pointer-events-none fixed inset-x-4 top-4 z-[9999] flex flex-col items-stretch gap-2 sm:inset-x-auto sm:right-4 sm:w-[380px]";
-
-interface ToastProps {
-  message: string;
-  type: ToastType;
-  isOpen: boolean;
-  onClose: () => void;
-  duration?: number;
-}
-
-/** Controlled single toast. Pair with `useToast()`; prefer the global `notify()` for new code. */
-export function Toast({ message, type, isOpen, onClose, duration = DEFAULT_DURATION }: ToastProps) {
-  useEffect(() => {
-    if (!isOpen || duration <= 0) return;
-    const timer = setTimeout(onClose, duration);
-    return () => clearTimeout(timer);
-  }, [isOpen, duration, onClose]);
-
-  return (
-    <div className={viewportClass} aria-live="polite">
-      <AnimatePresence>
-        {isOpen && <ToastCard key="toast" message={message} type={type} onClose={onClose} />}
-      </AnimatePresence>
-    </div>
-  );
-}
 
 /* ---------------------------------------------------------------- */
 /* Global toasts: call notify() from anywhere, render <Toaster /> once. */

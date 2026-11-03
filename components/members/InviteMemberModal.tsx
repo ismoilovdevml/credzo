@@ -4,7 +4,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { MailCheck } from "lucide-react";
 import { Button, Field, Input, Modal, Select } from "@/components/ui";
 import { notify } from "@/components/Toast";
-import { apiRequest, errorMessage } from "./api";
+import { api, errorMessage } from "@/lib/api-client";
 import { ROLE_META, assignableRoles, memberName, roleLabel, type InviteResult, type OrgMember, type OrgRole, type PendingInvitation } from "./roles";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -16,6 +16,7 @@ interface InviteMemberModalProps {
   organizationName: string;
   actorRole: OrgRole;
   onMemberAdded: (member: OrgMember) => void;
+  onInvitationCreated: () => void;
 }
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
@@ -31,6 +32,7 @@ export function InviteMemberModal({
   organizationName,
   actorRole,
   onMemberAdded,
+  onInvitationCreated,
 }: InviteMemberModalProps) {
   const emailRef = useRef<HTMLInputElement>(null);
   const [email, setEmail] = useState("");
@@ -65,9 +67,9 @@ export function InviteMemberModal({
     setSubmitting(true);
     setError(null);
     try {
-      const result = await apiRequest<InviteResult>(`/api/organizations/${encodeURIComponent(organizationId)}/members`, {
-        method: "POST",
-        body: { email: address, role },
+      const result = await api.post<InviteResult>(`/api/organizations/${encodeURIComponent(organizationId)}/members`, {
+        email: address,
+        role,
       });
       if (result.type === "member") {
         onMemberAdded(result.member);
@@ -76,6 +78,7 @@ export function InviteMemberModal({
         reset();
       } else {
         setInvitation(result.invitation);
+        onInvitationCreated();
       }
     } catch (err) {
       setError(errorMessage(err, "Couldn't send the invite. Please try again."));

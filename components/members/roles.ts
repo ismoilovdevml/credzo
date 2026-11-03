@@ -31,6 +31,11 @@ export interface PendingInvitation {
   createdAt: string;
 }
 
+/** Row from GET /api/organizations/[id]/invitations. `invitedBy` is null when the inviter's account is gone. */
+export interface InvitationListItem extends PendingInvitation {
+  invitedBy: OrgMemberUser | null;
+}
+
 /** POST /api/organizations/[id]/members result. */
 export type InviteResult =
   | { type: "member"; member: OrgMember }

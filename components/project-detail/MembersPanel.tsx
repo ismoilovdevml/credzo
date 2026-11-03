@@ -5,7 +5,7 @@ import { UserMinus, UserPlus } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { notify } from "@/components/Toast";
 import { Avatar, Badge, Button, Card, CardHeader, IconButton, Select } from "@/components/ui";
-import { apiRequest, errorMessage } from "./api";
+import { api, errorMessage } from "@/lib/api-client";
 import {
   PROJECT_ROLE_OPTIONS,
   canManageProject,
@@ -51,7 +51,7 @@ export function MembersPanel({ project, onAddMember, onMemberChanged, onMemberRe
   const changeRole = async (member: ProjectMemberView, role: ProjectRole) => {
     setUpdatingId(member.id);
     try {
-      const updated = await apiRequest<ProjectMemberView>(memberUrl(member.id), { method: "PATCH", body: { role } });
+      const updated = await api.patch<ProjectMemberView>(memberUrl(member.id), { role });
       onMemberChanged(updated);
       notify.success(`${userName(member.user)} is now ${roleLabel(role).toLowerCase()}`);
     } catch (error) {
@@ -64,7 +64,7 @@ export function MembersPanel({ project, onAddMember, onMemberChanged, onMemberRe
   const removeMember = async () => {
     if (!pendingRemoval) return;
     try {
-      await apiRequest(memberUrl(pendingRemoval.id), { method: "DELETE" });
+      await api.del(memberUrl(pendingRemoval.id));
       onMemberRemoved(pendingRemoval.id);
       notify.success(`${userName(pendingRemoval.user)} removed from the project`);
     } catch (error) {

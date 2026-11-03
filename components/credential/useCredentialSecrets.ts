@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { apiRequest } from "@/components/generator/api";
+import { api } from "@/lib/api-client";
 
 /** Revealed secrets re-mask after this delay. */
 export const SECRET_AUTO_HIDE_MS = 30_000;
@@ -28,9 +28,9 @@ export function useCredentialSecrets(credentialId: string) {
 
   const load = useCallback((): Promise<Record<string, string>> => {
     if (!request.current) {
-      const promise = apiRequest<{ fields: Record<string, string> }>(`/api/credentials/${credentialId}/reveal`, {
-        method: "POST",
-      }).then((data) => data.fields ?? {});
+      const promise = api
+        .post<{ fields: Record<string, string> }>(`/api/credentials/${credentialId}/reveal`)
+        .then((data) => data.fields ?? {});
       request.current = promise;
       promise.then(setValues, () => {
         request.current = null;

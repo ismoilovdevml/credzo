@@ -7,7 +7,7 @@ import { Badge, Button, Skeleton } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { notify } from "@/components/Toast";
 import { cn } from "@/lib/utils/cn";
-import { ApiError, apiRequest, errorMessage } from "./api";
+import { ApiError, api, errorMessage } from "@/lib/api-client";
 import { formatAgo, formatDateTime, formatTimeLeft, pluralize, useNow } from "./format";
 
 type LoadState =
@@ -51,7 +51,7 @@ export function ActiveLinks({ reloadKey }: ActiveLinksProps) {
 
   useEffect(() => {
     let cancelled = false;
-    apiRequest<ShareSummary[]>("/api/shares")
+    api.get<ShareSummary[]>("/api/shares")
       .then((shares) => {
         if (!cancelled) setState({ status: "ready", shares });
       })
@@ -65,7 +65,7 @@ export function ActiveLinks({ reloadKey }: ActiveLinksProps) {
 
   const revoke = async (share: ShareSummary) => {
     try {
-      const updated = await apiRequest<ShareSummary>(`/api/shares/${encodeURIComponent(share.id)}`, { method: "DELETE" });
+      const updated = await api.del<ShareSummary>(`/api/shares/${encodeURIComponent(share.id)}`);
       setState((current) =>
         current.status === "ready"
           ? { status: "ready", shares: current.shares.map((item) => (item.id === updated.id ? updated : item)) }

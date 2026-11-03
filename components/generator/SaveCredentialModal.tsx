@@ -7,7 +7,7 @@ import { AlertCircle, FolderPlus, Search } from "lucide-react";
 import type { ProjectSummary } from "@/lib/utils/projects";
 import { Avatar, Badge, Button, EmptyState, Input, Modal, Skeleton } from "@/components/ui";
 import { cn } from "@/lib/utils/cn";
-import { apiRequest, errorMessage } from "./api";
+import { api, errorMessage } from "@/lib/api-client";
 import { pluralize } from "./format";
 
 /** Show a filter box once the list gets long. */
@@ -35,7 +35,7 @@ export function SaveCredentialModal({ open, onClose, password }: SaveCredentialM
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    apiRequest<ProjectSummary[]>("/api/projects")
+    api.get<ProjectSummary[]>("/api/projects")
       .then((projects) => {
         if (!cancelled) setState({ status: "ready", projects });
       })

@@ -55,7 +55,10 @@ export function ChangePasswordModal({
 
     setSubmitting(true);
     try {
-      const result = await api.post<ChangePasswordResult>("/api/user-password", { currentPassword: current, newPassword: next });
+      const result = await api.post<ChangePasswordResult>("/api/user-password", {
+        currentPassword: current,
+        newPassword: next,
+      });
       const others = result.revokedSessions;
       notify.success(
         others > 0

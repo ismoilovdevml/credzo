@@ -78,18 +78,17 @@ export function AdminOverview() {
     return (
       <div className="flex flex-col gap-6">
         <PageHeader title="Admin overview" />
-        <div data-testid="admin-access-denied">
-          <EmptyState
-            icon={<ShieldAlert />}
-            title="Admin access required"
-            description="Only platform admins and organisation owners or admins can see this page. Ask an admin of your organisation if you need access."
-            action={
-              <Button asChild variant="secondary">
-                <Link href="/dashboard">Back to overview</Link>
-              </Button>
-            }
-          />
-        </div>
+        <EmptyState
+          icon={<ShieldAlert />}
+          title="Admin access required"
+          description="Only platform admins and organisation owners or admins can see this page. Ask an admin of your organisation if you need access."
+          action={
+            <Button asChild variant="secondary">
+              <Link href="/dashboard">Back to overview</Link>
+            </Button>
+          }
+          data-testid="admin-access-denied"
+        />
       </div>
     );
   }
@@ -113,9 +112,13 @@ export function AdminOverview() {
           actions={
             <>
               {stats && pending && <Spinner className="h-4 w-4 text-muted" label="Updating" />}
-              <div data-testid="admin-range">
-                <SegmentedControl aria-label="Period" value={range} onChange={changeRange} options={RANGE_OPTIONS} />
-              </div>
+              <SegmentedControl
+                aria-label="Period"
+                value={range}
+                onChange={changeRange}
+                options={RANGE_OPTIONS}
+                data-testid="admin-range"
+              />
             </>
           }
         />
@@ -135,64 +138,55 @@ export function AdminOverview() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 xl:grid-cols-5" aria-busy={!stats}>
-            <div data-testid="admin-stat-users" className="min-w-0">
-              <StatCard
-                className="h-full"
-                label="Users"
-                value={stats?.users.total.toLocaleString()}
-                hint={stats && `${stats.users.activeInRange.toLocaleString()} active in ${span}`}
-              />
-            </div>
-            <div data-testid="admin-stat-projects" className="min-w-0">
-              <StatCard
-                className="h-full"
-                label="Projects"
-                value={stats?.projects.total.toLocaleString()}
-                hint={
-                  stats &&
-                  (isPlatform
-                    ? `${stats.projects.personal.toLocaleString()} personal`
-                    : pluralize(stats.projects.organization, "shared project"))
-                }
-              />
-            </div>
-            <div data-testid="admin-stat-credentials" className="min-w-0">
-              <StatCard
-                className="h-full"
-                label="Credentials"
-                value={stats?.credentials.total.toLocaleString()}
-                hint={stats && `+${stats.credentials.newInRange.toLocaleString()} in ${span}`}
-                hintTone={stats && stats.credentials.newInRange > 0 ? "accent" : "muted"}
-              />
-            </div>
-            <div data-testid="admin-stat-events" className="min-w-0">
-              <StatCard
-                className="h-full"
-                label="Events"
-                value={stats?.events.total.toLocaleString()}
-                hint={stats && `in the last ${span}`}
-              />
-            </div>
-            <div data-testid="admin-stat-failed" className="col-span-2 min-w-0 sm:col-span-1">
-              <StatCard
-                className="h-full"
-                label="Failed sign-ins"
-                value={
-                  stats && (
-                    <span className={stats.failedSignIns.total > 0 ? "text-danger" : undefined}>
-                      {stats.failedSignIns.total.toLocaleString()}
-                    </span>
-                  )
-                }
-                hint={
-                  stats &&
-                  (stats.failedSignIns.total > 0
-                    ? `from ${pluralize(stats.failedSignIns.distinctIps, "IP")}`
-                    : `None in the last ${span}`)
-                }
-                hintTone={stats && stats.failedSignIns.total > 0 ? "danger" : "muted"}
-              />
-            </div>
+            <StatCard
+              data-testid="admin-stat-users"
+              label="Users"
+              value={stats?.users.total.toLocaleString()}
+              hint={stats && `${stats.users.activeInRange.toLocaleString()} active in ${span}`}
+            />
+            <StatCard
+              data-testid="admin-stat-projects"
+              label="Projects"
+              value={stats?.projects.total.toLocaleString()}
+              hint={
+                stats &&
+                (isPlatform
+                  ? `${stats.projects.personal.toLocaleString()} personal`
+                  : pluralize(stats.projects.organization, "shared project"))
+              }
+            />
+            <StatCard
+              data-testid="admin-stat-credentials"
+              label="Credentials"
+              value={stats?.credentials.total.toLocaleString()}
+              hint={stats && `+${stats.credentials.newInRange.toLocaleString()} in ${span}`}
+              hintTone={stats && stats.credentials.newInRange > 0 ? "accent" : "muted"}
+            />
+            <StatCard
+              data-testid="admin-stat-events"
+              label="Events"
+              value={stats?.events.total.toLocaleString()}
+              hint={stats && `in the last ${span}`}
+            />
+            <StatCard
+              data-testid="admin-stat-failed"
+              className="col-span-2 sm:col-span-1"
+              label="Failed sign-ins"
+              value={
+                stats && (
+                  <span className={stats.failedSignIns.total > 0 ? "text-danger" : undefined}>
+                    {stats.failedSignIns.total.toLocaleString()}
+                  </span>
+                )
+              }
+              hint={
+                stats &&
+                (stats.failedSignIns.total > 0
+                  ? `from ${pluralize(stats.failedSignIns.distinctIps, "IP")}`
+                  : `None in the last ${span}`)
+              }
+              hintTone={stats && stats.failedSignIns.total > 0 ? "danger" : "muted"}
+            />
           </div>
 
           <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">

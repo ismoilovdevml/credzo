@@ -8,6 +8,7 @@ import {
 } from "@/lib/middleware";
 import { requireCredentialAccess } from "@/lib/authorization";
 import { logCredentialDeleted, logCredentialUpdated } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/rate-limit";
 import type { Credential } from "@/lib/types";
 import { mergeFields, parseCredentialPatch, toCredentialView } from "@/lib/utils/credentials";
 import { NotFoundError } from "@/lib/utils/errors";
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const credential = loadCredential(id);
 
     return successResponse({
-      ...toCredentialView(credential, project.id),
+      ...toCredentialView(credential, project),
       projectName: project.name,
       currentUserRole: role,
     });
@@ -82,6 +83,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 
     if (Object.keys(changes).length > 0) {
       logCredentialUpdated(
+        getRequestMeta(request.headers),
         authContext.user.id,
         credential.id,
         credential.name,
@@ -90,7 +92,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       );
     }
 
-    return successResponse(toCredentialView(credential, project.id));
+    return successResponse(toCredentialView(credential, project));
   } catch (error) {
     return handleRouteError(error, "PATCH /api/credentials/[id]");
   }
@@ -116,6 +118,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
     if (!deleteCredential(id)) throw new NotFoundError("Credential");
 
     logCredentialDeleted(
+      getRequestMeta(request.headers),
       authContext.user.id,
       credential.id,
       credential.name,

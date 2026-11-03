@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, FolderPlus, KeyRound } from "lucide-react";
-import { Button, EmptyState, PageHeader, Skeleton, StatCard, type StatCardProps } from "@/components/ui";
+import { Button, EmptyState, PageHeader, Skeleton, StatCard } from "@/components/ui";
 import { useSession } from "@/components/shell/SessionProvider";
 import { AUDIT_CONFIG } from "@/lib/config/constants";
 import type { AuditLog } from "@/lib/types";
@@ -37,31 +37,26 @@ type VaultState =
 interface RevealStats {
   count: number;
   credentials: number;
-  /** The sample hit the API page limit, so the real count may be higher. */
+  /** More reveals than one API page: `credentials` counts only the most recent ones. */
   capped: boolean;
+}
+
+/** GET /api/organizations/[id]/audit response. */
+interface AuditPage {
+  logs: AuditLog[];
+  pagination: { total: number };
 }
 
 type AuditState =
   | { key: string; status: "error"; message: string }
   | { key: string; status: "ready"; logs: AuditLog[]; people: Map<string, string>; reveals: RevealStats };
 
-function countReveals(logs: AuditLog[], now: number): RevealStats {
-  const since = now - REVEAL_WINDOW_DAYS * DAY;
-  const recent = logs.filter((log) => Date.parse(log.timestamp) >= since);
+function countReveals({ logs, pagination }: AuditPage): RevealStats {
   return {
-    count: recent.length,
-    credentials: new Set(recent.map((log) => log.resourceId ?? log.id)).size,
-    capped: logs.length >= AUDIT_CONFIG.MAX_LIMIT && recent.length === logs.length,
+    count: pagination.total,
+    credentials: new Set(logs.map((log) => log.resourceId ?? log.id)).size,
+    capped: pagination.total > logs.length,
   };
-}
-
-/** StatCard with a stable test id (StatCard itself does not forward extra props). */
-function Stat({ testId, ...props }: StatCardProps & { testId: string }) {
-  return (
-    <div data-testid={testId} className="flex min-w-0">
-      <StatCard {...props} className="flex-1" />
-    </div>
-  );
 }
 
 const rowClass = "flex flex-wrap items-start gap-5";
@@ -102,12 +97,13 @@ export function Overview() {
     const revealQuery = new URLSearchParams({
       action: "accessed",
       resourceType: "credential",
+      from: new Date(Date.now() - REVEAL_WINDOW_DAYS * DAY).toISOString(),
       limit: String(AUDIT_CONFIG.MAX_LIMIT),
     });
     Promise.all([
       api.get<{ logs: AuditLog[] }>(`${base}/audit?limit=${ACTIVITY_LIMIT}`, { signal: controller.signal }),
       api.get<OrganizationPerson[]>(`${base}/members`, { signal: controller.signal }),
-      api.get<{ logs: AuditLog[] }>(`${base}/audit?${revealQuery}`, { signal: controller.signal }),
+      api.get<AuditPage>(`${base}/audit?${revealQuery}`, { signal: controller.signal }),
     ])
       .then(([activity, members, reveals]) => {
         const people = new Map<string, string>();
@@ -120,7 +116,7 @@ export function Overview() {
           status: "ready",
           logs: activity.logs,
           people,
-          reveals: countReveals(reveals.logs, Date.now()),
+          reveals: countReveals(reveals),
         });
       })
       .catch((error: unknown) => {
@@ -225,8 +221,8 @@ export function Overview() {
       {header}
 
       <section aria-label="Key figures" className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-4">
-        <Stat
-          testId="stat-projects"
+        <StatCard
+          data-testid="stat-projects"
           label="Projects"
           value={ready?.projects.length.toLocaleString()}
           hint={
@@ -236,8 +232,8 @@ export function Overview() {
               : "No production credentials yet")
           }
         />
-        <Stat
-          testId="stat-credentials"
+        <StatCard
+          data-testid="stat-credentials"
           label="Credentials"
           value={credentials?.length.toLocaleString()}
           hint={
@@ -246,8 +242,8 @@ export function Overview() {
           }
           hintTone={derived && derived.addedThisWeek > 0 ? "accent" : "muted"}
         />
-        <Stat
-          testId="stat-rotation"
+        <StatCard
+          data-testid="stat-rotation"
           label="Due for rotation"
           value={derived?.due.length.toLocaleString()}
           hint={
@@ -261,20 +257,22 @@ export function Overview() {
           hintTone={overdue > 0 ? "danger" : "muted"}
         />
         {auditOrganizationId ? (
-          <Stat
-            testId="stat-reveals"
+          <StatCard
+            data-testid="stat-reveals"
             label={`Reveals · last ${REVEAL_WINDOW_DAYS} days`}
-            value={audit?.status === "error" ? "—" : reveals ? `${reveals.count.toLocaleString()}${reveals.capped ? "+" : ""}` : undefined}
+            value={audit?.status === "error" ? "—" : reveals?.count.toLocaleString()}
             hint={
               audit?.status === "error"
                 ? "Couldn't load audit data"
                 : reveals &&
-                  (reveals.count > 0 ? `Across ${pluralize(reveals.credentials, "credential")}` : "No secrets revealed")
+                  (reveals.count > 0
+                    ? `Across ${reveals.capped ? "at least " : ""}${pluralize(reveals.credentials, "credential")}`
+                    : "No secrets revealed")
             }
           />
         ) : (
-          <Stat
-            testId="stat-production"
+          <StatCard
+            data-testid="stat-production"
             label="Production credentials"
             value={derived?.totals.production.toLocaleString()}
             hint={

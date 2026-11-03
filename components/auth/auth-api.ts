@@ -1,49 +1,30 @@
 /** Shared request helpers for the public sign-in and sign-up forms. */
 
-export const NETWORK_ERROR_MESSAGE = "Can't reach the server. Check your connection and try again.";
+import { ApiError, fetchJson } from "@/lib/api-client";
 
-export interface AuthResponse<T> {
-  ok: boolean;
-  status: number;
-  /** Parsed JSON body, or null when the body is not JSON. */
-  data: (T & { error?: string }) | null;
-  /** Retry-After header in seconds (429 responses). */
-  retryAfterSeconds: number | null;
-}
+const NETWORK_ERROR_MESSAGE = "Can't reach the server. Check your connection and try again.";
 
 /**
- * POSTs JSON to an auth endpoint. Rejects only when the request never reached
- * the server (offline, DNS, aborted) so callers can show a network error.
+ * POSTs JSON to an auth/* endpoint and returns its top-level payload. A 401 here
+ * means rejected credentials, so it never redirects to /login. Throws ApiError;
+ * `fallbackError` is its message when the response carries no error text.
  */
-export async function postAuth<T>(url: string, body: unknown): Promise<AuthResponse<T>> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
-
-  let data: (T & { error?: string }) | null = null;
-  try {
-    data = (await response.json()) as T & { error?: string };
-  } catch {
-    data = null;
-  }
-
-  const retryAfter = Number.parseInt(response.headers.get("Retry-After") ?? "", 10);
-  return {
-    ok: response.ok,
-    status: response.status,
-    data,
-    retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null,
-  };
+export function postAuth<T>(url: string, body: unknown, fallbackError: string): Promise<T> {
+  return fetchJson<T>("POST", url, { body, redirectOn401: false, fallbackError });
 }
 
 /** "Too many attempts — try again in N minutes" from a Retry-After value. */
-export function rateLimitMessage(retryAfterSeconds: number | null): string {
-  if (retryAfterSeconds === null) return "Too many attempts — try again later.";
+function rateLimitMessage(retryAfterSeconds: number | undefined): string {
+  if (retryAfterSeconds === undefined) return "Too many attempts — try again later.";
   const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
   return `Too many attempts — try again in ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`;
+}
+
+/** Form-level message for a failed postAuth call: network, rate limit, or the server's error. */
+export function authErrorMessage(error: unknown): string {
+  if (!(error instanceof ApiError) || error.status === 0) return NETWORK_ERROR_MESSAGE;
+  if (error.status === 429) return rateLimitMessage(error.retryAfter);
+  return error.message;
 }
 
 /**

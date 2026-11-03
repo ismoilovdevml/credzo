@@ -11,16 +11,14 @@ const OPTIONS: { value: Theme; label: string }[] = [
   { value: "system", label: "Match system" },
 ];
 
-/** Miniature app frame drawn with theme tokens; `.dark` scopes the dark palette to the preview only. */
+/** Miniature app frame drawn with theme tokens; the `light` / `dark` class scopes that palette to the preview. */
 function Preview({ scheme }: { scheme: "light" | "dark" }) {
-  // Light previews use fixed neutrals so they stay light while the app itself is dark.
-  const light = scheme === "light";
   return (
-    <span className={cn("flex h-full w-full gap-1.5 p-2", light ? "bg-slate-100" : "dark bg-canvas")}>
-      <span className={cn("w-[26%] rounded-[5px]", light ? "bg-white" : "bg-surface")} />
+    <span className={cn("flex h-full w-full gap-1.5 bg-canvas p-2", scheme)}>
+      <span className="w-[26%] rounded-[5px] bg-surface" />
       <span className="flex flex-1 flex-col gap-1.5">
-        <span className={cn("h-3 w-3/5 rounded-[3px]", light ? "bg-slate-300" : "bg-line-strong")} />
-        <span className={cn("flex-1 rounded-[5px] border", light ? "border-slate-200 bg-white" : "border-line bg-surface-2")} />
+        <span className="h-3 w-3/5 rounded-[3px] bg-line-strong" />
+        <span className="flex-1 rounded-[5px] border border-line bg-surface-2" />
       </span>
     </span>
   );

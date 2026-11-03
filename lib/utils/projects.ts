@@ -14,6 +14,8 @@ export interface ProjectSummary {
   name: string;
   description: string;
   organizationId: string | null;
+  /** Name of the owning organization; null for personal projects. */
+  organizationName: string | null;
   ownerId: string;
   visibility: string;
   createdAt: string;
@@ -86,12 +88,26 @@ function loadProjectStats(projectIds: string[]): Map<string, ProjectStats> {
   return stats;
 }
 
+/** Organization id → name for the given ids, in one query. */
+function loadOrganizationNames(organizationIds: string[]): Map<string, string> {
+  const ids = [...new Set(organizationIds)];
+  if (ids.length === 0) return new Map();
+  const rows = getDb()
+    .prepare(`SELECT id, name FROM organizations WHERE id IN (${ids.map(() => '?').join(', ')})`)
+    .all(...ids) as { id: string; name: string }[];
+  return new Map(rows.map((row) => [row.id, row.name]));
+}
+
 export function buildProjectSummaries(
   projects: { project: ProjectRef; role: ProjectRole }[]
 ): ProjectSummary[] {
   const stats = loadProjectStats(projects.map(({ project }) => project.id));
+  const organizationNames = loadOrganizationNames(
+    projects.flatMap(({ project }) => (project.organizationId ? [project.organizationId] : []))
+  );
   return projects.map(({ project, role }) => ({
     ...project,
+    organizationName: project.organizationId ? (organizationNames.get(project.organizationId) ?? null) : null,
     currentUserRole: role,
     ...(stats.get(project.id) ?? emptyStats()),
   }));

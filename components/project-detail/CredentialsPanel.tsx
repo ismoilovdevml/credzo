@@ -7,7 +7,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { notify } from "@/components/Toast";
 import { Button, EmptyState, Input, Select } from "@/components/ui";
 import { cn } from "@/lib/utils/cn";
-import { apiRequest, errorMessage } from "./api";
+import { api, errorMessage } from "@/lib/api-client";
 import { CredentialsTable } from "./CredentialsTable";
 import {
   ENVIRONMENT_TABS,
@@ -74,7 +74,7 @@ export function CredentialsPanel({ projectId, credentials, canEdit, now, onDelet
   const handleDelete = async () => {
     if (!pendingDelete) return;
     try {
-      await apiRequest(`/api/credentials/${encodeURIComponent(pendingDelete.id)}`, { method: "DELETE" });
+      await api.del(`/api/credentials/${encodeURIComponent(pendingDelete.id)}`);
       onDeleted(pendingDelete.id);
       notify.success(`Deleted "${pendingDelete.name}"`);
     } catch (error) {
@@ -108,32 +108,36 @@ export function CredentialsPanel({ projectId, credentials, canEdit, now, onDelet
             );
           })}
         </div>
-        <div className="min-w-0 flex-[1_1_220px]">
-          <Input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by name, host or type"
-            aria-label="Search credentials"
-            leading={<Search />}
-            data-testid="credential-search"
-          />
+        <div className="flex min-w-0 flex-[1_1_320px] items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <Input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search by name, host or type"
+              aria-label="Search credentials"
+              leading={<Search />}
+              data-testid="credential-search"
+            />
+          </div>
+          {types.length > 1 && (
+            <div className="w-[150px] flex-none sm:w-[180px]">
+              <Select
+                value={activeType}
+                onChange={(event) => setType(event.target.value)}
+                aria-label="Filter by type"
+                data-testid="credential-type-filter"
+              >
+                <option value="all">All types</option>
+                {types.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
         </div>
-        {types.length > 1 && (
-          <Select
-            value={activeType}
-            onChange={(event) => setType(event.target.value)}
-            aria-label="Filter by type"
-            className="w-auto min-w-[160px] flex-[0_1_200px]"
-          >
-            <option value="all">All types</option>
-            {types.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-        )}
       </div>
 
       {credentials.length === 0 ? (

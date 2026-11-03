@@ -7,7 +7,7 @@ import { ServiceIcon } from "@/components/ServiceIcon";
 import { notify } from "@/components/Toast";
 import { getServiceMetadata } from "@/lib/services";
 import type { ServiceType } from "@/lib/types";
-import { apiRequest, errorMessage } from "./api";
+import { api, errorMessage } from "@/lib/api-client";
 import { CredentialDetailsForm } from "./CredentialDetailsForm";
 import { FormHeader, FormSkeleton, LoadError, StepCard, ViewerNotice, useLeaveGuard } from "./FormChrome";
 import {
@@ -73,7 +73,7 @@ export function NewCredentialScreen({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    apiRequest<ProjectInfo>(`/api/projects/${encodeURIComponent(projectId)}`)
+    api.get<ProjectInfo>(`/api/projects/${encodeURIComponent(projectId)}`)
       .then((project) => {
         if (cancelled) return;
         setLoad({ status: "ready", project: { name: project.name, currentUserRole: project.currentUserRole } });
@@ -118,10 +118,7 @@ export function NewCredentialScreen({ projectId }: { projectId: string }) {
 
     setSaving(true);
     try {
-      const created = await apiRequest<{ id: string }>("/api/credentials", {
-        method: "POST",
-        body: buildCreatePayload(projectId, type, values),
-      });
+      const created = await api.post<{ id: string }>("/api/credentials", buildCreatePayload(projectId, type, values));
       notify.success(`Credential "${values.name.trim()}" saved`);
       router.push(`${projectHref}/credentials/${encodeURIComponent(created.id)}`);
     } catch (error) {

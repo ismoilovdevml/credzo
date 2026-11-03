@@ -18,6 +18,7 @@ import Link from "next/link";
 import { Slot } from "@radix-ui/react-slot";
 import { useIsClient } from "@/hooks/useIsClient";
 import { cn } from "@/lib/utils/cn";
+import type { DataAttributes } from "./types";
 
 const VIEWPORT_GAP = 8;
 const TRIGGER_GAP = 6;
@@ -196,7 +197,7 @@ export function DropdownMenu({ trigger, children, align = "end", side = "bottom"
 const itemClass =
   "flex min-h-[40px] w-full cursor-pointer select-none items-center gap-2.5 rounded-lg px-2.5 text-left text-[14px] font-medium outline-none transition-colors focus-visible:ring-0 [&_svg]:h-4 [&_svg]:w-4 [&_svg]:flex-none";
 
-export interface DropdownMenuItemProps {
+export interface DropdownMenuItemProps extends DataAttributes {
   children: ReactNode;
   /** Leading lucide icon element. */
   icon?: ReactNode;
@@ -210,7 +211,16 @@ export interface DropdownMenuItemProps {
   trailing?: ReactNode;
 }
 
-export function DropdownMenuItem({ children, icon, onSelect, href, tone = "default", disabled, trailing }: DropdownMenuItemProps) {
+export function DropdownMenuItem({
+  children,
+  icon,
+  onSelect,
+  href,
+  tone = "default",
+  disabled,
+  trailing,
+  ...rest
+}: DropdownMenuItemProps) {
   const { close } = useMenu();
   const className = cn(
     itemClass,
@@ -238,6 +248,7 @@ export function DropdownMenuItem({ children, icon, onSelect, href, tone = "defau
           onSelect?.();
           close(false);
         }}
+        {...rest}
       >
         {content}
       </Link>
@@ -256,6 +267,7 @@ export function DropdownMenuItem({ children, icon, onSelect, href, tone = "defau
         onSelect?.();
         close();
       }}
+      {...rest}
     >
       {content}
     </button>

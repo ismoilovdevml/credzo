@@ -1,24 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleRouteError, requireAuth, successResponse } from "@/lib/middleware";
 import { isPlatformAdmin, requireOrganizationAccess } from "@/lib/authorization";
-import {
-  getActivityStats,
-  getAuditLog,
-  getMemberActivitySummary,
-  searchAuditLogs,
-} from "@/lib/audit";
-import { countAuditLogs } from "@/lib/db";
+import { getActivityStats, getMemberActivitySummary } from "@/lib/audit";
+import { countAuditLogs, getAuditLogs, type AuditLogFilters } from "@/lib/db";
 import { AUDIT_CONFIG } from "@/lib/config/constants";
 import { AuthorizationError, ValidationError } from "@/lib/utils/errors";
 import { parseIntegerParam } from "@/lib/utils/input";
 
 const MAX_FILTER_LENGTH = 100;
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Normalizes an ISO date or date-time to a full ISO timestamp. A bare date
+ * (YYYY-MM-DD, UTC) as the upper bound covers that whole day.
+ */
+function parseDateParam(key: string, value: string | undefined, endOfDay: boolean): string | undefined {
+  if (!value) return undefined;
+  const time = Date.parse(value);
+  const date = new Date(endOfDay && DATE_ONLY.test(value) ? time + DAY_MS - 1 : time);
+  if (Number.isNaN(date.getTime())) throw new ValidationError(`${key} must be an ISO 8601 date`);
+  return date.toISOString();
+}
 
 /**
  * GET /api/organizations/[id]/audit
  * Audit logs of an organization (owners and admins), or of the whole platform
  * when id is "all" (platform admins only).
- * Query: action, resourceType, userId, limit, offset, search, stats=true
+ * Query (all combinable): action, resourceType, resourceId, userId, search,
+ * from / to (ISO dates, inclusive), limit, offset; or stats=true.
  */
 export async function GET(
   request: NextRequest,
@@ -49,10 +59,16 @@ export async function GET(
       return value || undefined;
     };
 
-    const action = filter("action");
-    const resourceType = filter("resourceType");
-    const userId = filter("userId");
-    const search = filter("search");
+    const filters: AuditLogFilters = {
+      organizationId: isAllOrganizations ? undefined : id,
+      action: filter("action"),
+      resourceType: filter("resourceType"),
+      resourceId: filter("resourceId"),
+      userId: filter("userId"),
+      search: filter("search"),
+      since: parseDateParam("from", filter("from"), false),
+      until: parseDateParam("to", filter("to"), true),
+    };
     const limit = parseIntegerParam(searchParams.get("limit"), AUDIT_CONFIG.DEFAULT_LIMIT, {
       min: 1,
       max: AUDIT_CONFIG.MAX_LIMIT,
@@ -61,22 +77,16 @@ export async function GET(
       min: 0,
       max: Number.MAX_SAFE_INTEGER,
     });
-    const organizationId = isAllOrganizations ? undefined : id;
 
-    if (searchParams.get("stats") === "true" && organizationId) {
+    if (searchParams.get("stats") === "true" && filters.organizationId) {
       return successResponse({
-        stats: getActivityStats(organizationId),
-        memberActivity: getMemberActivitySummary(organizationId),
+        stats: getActivityStats(filters.organizationId),
+        memberActivity: getMemberActivitySummary(filters.organizationId),
       });
     }
 
-    if (search && organizationId) {
-      const logs = searchAuditLogs(organizationId, search, limit);
-      return successResponse({ logs, total: logs.length });
-    }
-
-    const logs = getAuditLog({ organizationId, action, resourceType, userId, limit, offset });
-    const total = countAuditLogs({ organizationId, action, resourceType, userId });
+    const logs = getAuditLogs({ ...filters, limit, offset });
+    const total = countAuditLogs(filters);
 
     return successResponse({
       logs,

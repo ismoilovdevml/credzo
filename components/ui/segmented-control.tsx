@@ -2,15 +2,18 @@
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
+import type { DataAttributes } from "./types";
 
 export interface SegmentedOption<T extends string> {
   value: T;
   label: ReactNode;
   /** Optional muted count shown after the label. */
   count?: number;
+  /** data-testid for this option's button. */
+  testId?: string;
 }
 
-export interface SegmentedControlProps<T extends string> {
+export interface SegmentedControlProps<T extends string> extends DataAttributes {
   value: T;
   onChange: (value: T) => void;
   options: SegmentedOption<T>[];
@@ -28,9 +31,15 @@ export function SegmentedControl<T extends string>({
   size = "md",
   className,
   "aria-label": ariaLabel,
+  ...rest
 }: SegmentedControlProps<T>) {
   return (
-    <div role="group" aria-label={ariaLabel} className={cn("inline-flex max-w-full flex-wrap gap-1 rounded-lg bg-track p-1", className)}>
+    <div
+      role="group"
+      aria-label={ariaLabel}
+      className={cn("inline-flex max-w-full flex-wrap gap-1 rounded-lg bg-track p-1", className)}
+      {...rest}
+    >
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -38,6 +47,7 @@ export function SegmentedControl<T extends string>({
             key={option.value}
             type="button"
             aria-pressed={active}
+            data-testid={option.testId}
             onClick={() => onChange(option.value)}
             className={cn(
               "inline-flex items-center gap-1.5 whitespace-nowrap rounded-[7px] px-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",

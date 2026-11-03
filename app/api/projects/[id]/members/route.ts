@@ -9,6 +9,7 @@ import {
 } from "@/lib/middleware";
 import { PROJECT_ROLES, requireProjectAccess } from "@/lib/authorization";
 import { logAudit } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/rate-limit";
 import { AuditAction, AuditResource } from "@/lib/types";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/utils/errors";
 import { readOptionalEnum, readRequiredString, requireObject } from "@/lib/utils/input";
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       .run(memberId, project.id, userId, role, authContext.user.id, now, now);
 
     logAudit({
+      ...getRequestMeta(request.headers),
       organizationId: project.organizationId ?? undefined,
       userId: authContext.user.id,
       action: AuditAction.CREATED,

@@ -7,6 +7,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { notify } from "@/components/Toast";
+import { api, errorMessage } from "@/lib/api-client";
 import { cn } from "@/lib/utils/cn";
 import { useSession } from "./SessionProvider";
 
@@ -21,29 +22,6 @@ const roleLabel = (role: string | null) => (role ? (ROLE_LABELS[role] ?? role) :
 
 const blockClass =
   "flex min-h-[48px] w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface-2 p-2.5 text-left";
-
-async function activateOrganization(organizationId: string): Promise<void> {
-  const response = await fetch("/api/auth/active-organization", {
-    method: "POST",
-    credentials: "same-origin",
-    cache: "no-store",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ organizationId }),
-  });
-  if (response.status === 401) {
-    const next = window.location.pathname + window.location.search;
-    window.location.assign(`/login?next=${encodeURIComponent(next)}`);
-    throw new Error("Your session has expired. Please sign in again.");
-  }
-  if (!response.ok) {
-    const payload: unknown = await response.json().catch(() => null);
-    const message =
-      typeof payload === "object" && payload !== null && "error" in payload && typeof payload.error === "string"
-        ? payload.error
-        : `Couldn't switch organisation (${response.status})`;
-    throw new Error(message);
-  }
-}
 
 /**
  * Current organisation block at the top of the sidebar. With more than one
@@ -79,14 +57,14 @@ export function OrgSwitcher({ onNavigate }: { onNavigate?: () => void }) {
     if (organizationId === organization?.id || switchingTo) return;
     setSwitchingTo(organizationId);
     try {
-      await activateOrganization(organizationId);
+      await api.post("/api/auth/active-organization", { organizationId }, { fallbackError: "Couldn't switch organisation" });
       await refresh();
       void refreshProjectCount();
       router.refresh();
       router.push("/dashboard");
       onNavigate?.();
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : "Couldn't switch organisation");
+      notify.error(errorMessage(error, "Couldn't switch organisation"));
     } finally {
       setSwitchingTo(null);
     }
@@ -125,6 +103,9 @@ export function OrgSwitcher({ onNavigate }: { onNavigate?: () => void }) {
           <DropdownMenuItem
             key={org.id}
             onSelect={() => void select(org.id)}
+            data-testid="org-option"
+            data-organization-id={org.id}
+            data-current={current || undefined}
             icon={<Avatar name={org.name} shape="square" size="xs" />}
             trailing={
               <span className="flex items-center gap-2">
@@ -136,10 +117,8 @@ export function OrgSwitcher({ onNavigate }: { onNavigate?: () => void }) {
               </span>
             }
           >
-            <span data-testid="org-option" data-organization-id={org.id} data-current={current || undefined}>
-              {org.name}
-              {current && <span className="sr-only"> (current)</span>}
-            </span>
+            {org.name}
+            {current && <span className="sr-only"> (current)</span>}
           </DropdownMenuItem>
         );
       })}

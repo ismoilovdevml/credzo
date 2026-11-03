@@ -10,7 +10,7 @@ import { notify } from "@/components/Toast";
 import { Button, EmptyState, Skeleton, Tab, TabList, TabPanel, Tabs } from "@/components/ui";
 import type { Service } from "@/lib/types";
 import { AddMemberModal } from "./AddMemberModal";
-import { ApiError, apiRequest, errorMessage } from "./api";
+import { ApiError, api, errorMessage } from "@/lib/api-client";
 import { CredentialsPanel } from "./CredentialsPanel";
 import { EditProjectModal } from "./EditProjectModal";
 import { MembersPanel } from "./MembersPanel";
@@ -31,7 +31,7 @@ type Dialog = "edit" | "delete" | "add-member" | null;
 
 export function ProjectDetail({ projectId }: { projectId: string }) {
   const router = useRouter();
-  const { organization, refreshProjectCount } = useSession();
+  const { refreshProjectCount } = useSession();
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [services, setServices] = useState<ServicesState>({ status: "loading" });
   const [reloadKey, setReloadKey] = useState(0);
@@ -45,7 +45,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    apiRequest<ProjectData>(projectPath)
+    api.get<ProjectData>(projectPath)
       .then((project) => {
         if (!cancelled) setState({ status: "ready", project, loadedAt: Date.now() });
       })
@@ -64,7 +64,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    apiRequest<Service[]>(`${projectPath}/services`)
+    api.get<Service[]>(`${projectPath}/services`)
       .then((list) => {
         if (!cancelled) setServices({ status: "ready", services: list });
       })
@@ -135,8 +135,6 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
 
   const { project, loadedAt } = state;
   const canEdit = canEditProject(project.currentUserRole);
-  const organizationName =
-    project.organizationId && organization?.id === project.organizationId ? organization.name : null;
 
   const handleSaved = (summary: ProjectSummary) =>
     updateProject((current) => ({
@@ -149,7 +147,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
 
   const handleDeleteProject = async () => {
     try {
-      await apiRequest(projectPath, { method: "DELETE" });
+      await api.del(projectPath);
       notify.success(`Deleted "${project.name}"`);
       await refreshProjectCount();
       router.push("/dashboard/projects");
@@ -184,7 +182,6 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
     <div className="flex flex-col gap-6">
       <ProjectHeader
         project={project}
-        organizationName={organizationName}
         onAddMember={() => {
           setSection("members");
           openDialog("add-member");

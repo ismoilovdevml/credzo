@@ -7,8 +7,9 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useSession } from "@/components/shell/SessionProvider";
 import { notify } from "@/components/Toast";
 import { Button, EmptyState, Input, PageHeader, SegmentedControl, Skeleton } from "@/components/ui";
-import { ApiError, apiRequest, errorMessage } from "./api";
+import { ApiError, api, errorMessage } from "@/lib/api-client";
 import { InviteMemberModal } from "./InviteMemberModal";
+import { PendingInvitations } from "./PendingInvitations";
 import { MembersTable, MembersTableSkeleton } from "./MembersTable";
 import { RolesPanel } from "./RolesPanel";
 import {
@@ -59,6 +60,7 @@ export function MembersScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<RoleFilter>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [invitationsKey, setInvitationsKey] = useState(0);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   // Targets stay set after their dialog closes so the copy doesn't blank out during the exit animation.
   const [removing, setRemoving] = useState<OrgMember | null>(null);
@@ -69,7 +71,7 @@ export function MembersScreen() {
   const load = useCallback(async (orgId: string, signal?: { cancelled: boolean }) => {
     setState({ status: "loading" });
     try {
-      const members = await apiRequest<OrgMember[]>(`/api/organizations/${encodeURIComponent(orgId)}/members`);
+      const members = await api.get<OrgMember[]>(`/api/organizations/${encodeURIComponent(orgId)}/members`);
       if (!signal?.cancelled) setState({ status: "ready", members: sortMembers(members) });
     } catch (err) {
       if (signal?.cancelled) return;
@@ -118,9 +120,9 @@ export function MembersScreen() {
     if (!organizationId) return;
     setPendingUserId(member.userId);
     try {
-      const updated = await apiRequest<OrgMember>(
+      const updated = await api.put<OrgMember>(
         `/api/organizations/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(member.userId)}`,
-        { method: "PUT", body: { role } }
+        { role }
       );
       replaceMember(updated);
       notify.success(`${memberName(member)} is now ${ROLE_META[role].label.toLowerCase()}.`);
@@ -147,9 +149,8 @@ export function MembersScreen() {
     if (!organizationId || !removing) return;
     const target = removing;
     try {
-      await apiRequest<{ userId: string }>(
-        `/api/organizations/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(target.userId)}`,
-        { method: "DELETE" }
+      await api.del<{ userId: string }>(
+        `/api/organizations/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(target.userId)}`
       );
       setState((current) =>
         current.status === "ready"
@@ -311,6 +312,15 @@ export function MembersScreen() {
           />
         ))}
 
+      {canManage && actorRole && (
+        <PendingInvitations
+          organizationId={organization.id}
+          organizationName={organization.name}
+          actorRole={actorRole}
+          reloadKey={invitationsKey}
+        />
+      )}
+
       <RolesPanel />
 
       {canManage && actorRole && (
@@ -321,6 +331,7 @@ export function MembersScreen() {
           organizationName={organization.name}
           actorRole={actorRole}
           onMemberAdded={addMember}
+          onInvitationCreated={() => setInvitationsKey((key) => key + 1)}
         />
       )}
 

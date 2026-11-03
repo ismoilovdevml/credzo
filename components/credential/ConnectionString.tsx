@@ -37,9 +37,12 @@ export function ConnectionString({ type, fields, hasPassword, revealedPassword, 
         >
           {display}
         </code>
-        <span data-testid="copy-connection-string" className="inline-flex">
-          <CopyButton value={copyValue} label="Copy connection string" sensitive={hasPassword} />
-        </span>
+        <CopyButton
+          value={copyValue}
+          label="Copy connection string"
+          sensitive={hasPassword}
+          data-testid="copy-connection-string"
+        />
       </div>
     </section>
   );

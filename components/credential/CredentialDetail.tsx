@@ -9,7 +9,7 @@ import { ServiceIcon } from "@/components/ServiceIcon";
 import { notify } from "@/components/Toast";
 import { useSession } from "@/components/shell/SessionProvider";
 import { Button, EmptyState, EnvBadge, PageHeader, Skeleton } from "@/components/ui";
-import { ApiError, apiRequest, errorMessage } from "@/components/generator/api";
+import { ApiError, api, errorMessage } from "@/lib/api-client";
 import { getServiceMetadata } from "@/lib/services";
 import type { ServiceType } from "@/lib/types";
 import type { CredentialView } from "@/lib/utils/credentials";
@@ -54,7 +54,7 @@ function useMemberNames(organizationId: string | undefined): ReadonlyMap<string,
   useEffect(() => {
     if (!organizationId) return;
     let cancelled = false;
-    apiRequest<OrganizationMemberWithUser[]>(`/api/organizations/${organizationId}/members`)
+    api.get<OrganizationMemberWithUser[]>(`/api/organizations/${organizationId}/members`)
       .then((members) => {
         if (cancelled) return;
         const map = new Map<string, string>();
@@ -136,7 +136,7 @@ export function CredentialDetail() {
 
   useEffect(() => {
     let cancelled = false;
-    apiRequest<CredentialDetailData>(`/api/credentials/${credentialId}`)
+    api.get<CredentialDetailData>(`/api/credentials/${credentialId}`)
       .then((credential) => {
         if (!cancelled) setState({ status: "ready", credential });
       })
@@ -219,11 +219,27 @@ export function CredentialDetail() {
   const editHref = `${projectHref}/credentials/${cred.id}/edit`;
   const hasPassword = cred.secretFields.includes("password");
   const revealedPassword = secrets.revealed.has("password") ? (secrets.values?.password ?? null) : null;
-  const auditOrganizationId = session.isAdmin ? session.organization?.id : undefined;
+  // The audit log is per organization: only show activity when this credential lives in the active one.
+  const auditOrganizationId =
+    session.isAdmin && cred.organizationId !== null && cred.organizationId === session.organization?.id
+      ? cred.organizationId
+      : undefined;
+
+  const markRotated = async () => {
+    try {
+      const updated = await api.post<CredentialView>(`/api/credentials/${encodeURIComponent(cred.id)}/rotated`);
+      setState((current) =>
+        current.status === "ready" ? { status: "ready", credential: { ...current.credential, ...updated } } : current
+      );
+      notify.success("Marked as rotated");
+    } catch (error) {
+      notify.error(errorMessage(error, "Couldn't mark the credential as rotated"));
+    }
+  };
 
   const handleDelete = async () => {
     try {
-      await apiRequest<{ id: string }>(`/api/credentials/${cred.id}`, { method: "DELETE" });
+      await api.del<{ id: string }>(`/api/credentials/${cred.id}`);
       notify.success(`Deleted "${cred.name}"`);
       router.push(projectHref);
     } catch (error) {
@@ -348,6 +364,7 @@ export function CredentialDetail() {
             createdAt={cred.createdAt}
             now={now}
             editHref={canEdit ? editHref : undefined}
+            onMarkRotated={canEdit ? markRotated : undefined}
           />
           <DetailsCard
             serviceLabel={serviceLabel}

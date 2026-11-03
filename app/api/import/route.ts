@@ -8,6 +8,7 @@ import {
 } from "@/lib/middleware";
 import { getDefaultProjectOrganizationId } from "@/lib/authorization";
 import { logProjectCreated } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/rate-limit";
 import { PROJECT_CONFIG, REQUEST_LIMITS } from "@/lib/config/constants";
 import { type CredentialInput, parseCredentialInput } from "@/lib/utils/credentials";
 import { ValidationError } from "@/lib/utils/errors";
@@ -113,8 +114,9 @@ export async function POST(request: NextRequest) {
       })
     )();
 
+    const meta = getRequestMeta(request.headers);
     for (const project of created) {
-      logProjectCreated(userId, project.id, project.name, organizationId, {
+      logProjectCreated(meta, userId, project.id, project.name, organizationId, {
         source: "import",
         credentials: project.credentials,
       });

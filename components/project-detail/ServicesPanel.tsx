@@ -6,7 +6,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { notify } from "@/components/Toast";
 import { Badge, Button, Card, EmptyState, IconButton, Skeleton } from "@/components/ui";
 import type { Service } from "@/lib/types";
-import { apiRequest, errorMessage } from "./api";
+import { api, errorMessage } from "@/lib/api-client";
 import { ServiceModal } from "./ServiceModal";
 
 export type ServicesState =
@@ -42,9 +42,8 @@ export function ServicesPanel({ projectId, state, canEdit, onRetry, onChange }: 
   const handleDelete = async () => {
     if (!pendingDelete) return;
     try {
-      await apiRequest(
-        `/api/projects/${encodeURIComponent(projectId)}/services/${encodeURIComponent(pendingDelete.id)}`,
-        { method: "DELETE" }
+      await api.del(
+        `/api/projects/${encodeURIComponent(projectId)}/services/${encodeURIComponent(pendingDelete.id)}`
       );
       onChange(services.filter((service) => service.id !== pendingDelete.id));
       notify.success(`Deleted "${pendingDelete.name}"`);

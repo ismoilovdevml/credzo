@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
 
 const HINT_TONES = {
@@ -8,7 +8,7 @@ const HINT_TONES = {
   danger: "text-danger",
 } as const;
 
-export interface StatCardProps {
+export interface StatCardProps extends Omit<HTMLAttributes<HTMLDivElement>, "children"> {
   label: ReactNode;
   value: ReactNode;
   /** Small text after the value, e.g. "/ 100". */
@@ -19,14 +19,23 @@ export interface StatCardProps {
   /** 0–100; renders a thin progress bar under the value. */
   progress?: number;
   icon?: ReactNode;
-  className?: string;
 }
 
 /** KPI tile: label, large number, optional hint or progress bar. Shows a skeleton when `value` is undefined. */
-export function StatCard({ label, value, suffix, hint, hintTone = "muted", progress, icon, className }: StatCardProps) {
+export function StatCard({
+  label,
+  value,
+  suffix,
+  hint,
+  hintTone = "muted",
+  progress,
+  icon,
+  className,
+  ...rest
+}: StatCardProps) {
   const clamped = progress === undefined ? undefined : Math.min(100, Math.max(0, progress));
   return (
-    <div className={cn("flex min-w-0 flex-col gap-2 rounded-2xl border border-line bg-surface p-5", className)}>
+    <div className={cn("flex min-w-0 flex-col gap-2 rounded-2xl border border-line bg-surface p-5", className)} {...rest}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-[13.5px] font-semibold text-muted">{label}</span>
         {icon && <span className="text-muted [&_svg]:h-4 [&_svg]:w-4">{icon}</span>}

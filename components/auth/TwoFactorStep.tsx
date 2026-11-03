@@ -4,7 +4,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, KeyRound, ShieldCheck } from "lucide-react";
 import { Button, Field, Input } from "@/components/ui";
 import { FormError } from "./FormError";
-import { NETWORK_ERROR_MESSAGE, postAuth, rateLimitMessage, type AuthResponse } from "./auth-api";
+import { authErrorMessage, postAuth } from "./auth-api";
 
 const TOTP_LENGTH = 6;
 /** Backup codes are 10 characters shown as "xxxxx-xxxxx". */
@@ -42,25 +42,15 @@ export function TwoFactorStep({ challenge, onSuccess, onBack }: TwoFactorStepPro
     setError(null);
     setLoading(true);
 
-    let result: AuthResponse<{ success: boolean }>;
     try {
-      result = await postAuth<{ success: boolean }>("/api/auth/login/2fa", { challenge, code: value });
-    } catch {
-      setError(NETWORK_ERROR_MESSAGE);
-      setLoading(false);
-      return;
-    }
-
-    if (result.ok && result.data?.success) {
+      await postAuth("/api/auth/login/2fa", { challenge, code: value }, "Verification failed. Please try again.");
       onSuccess();
-      return;
+    } catch (err) {
+      setError(authErrorMessage(err));
+      setCode("");
+      setLoading(false);
+      requestAnimationFrame(() => inputRef.current?.focus());
     }
-
-    if (result.status === 429) setError(rateLimitMessage(result.retryAfterSeconds));
-    else setError(result.data?.error ?? "Verification failed. Please try again.");
-    setCode("");
-    setLoading(false);
-    requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   const handleChange = (value: string) => {

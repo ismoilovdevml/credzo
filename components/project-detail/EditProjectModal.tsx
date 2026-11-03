@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { notify } from "@/components/Toast";
 import { Button, Field, Input, Modal, Select, Textarea } from "@/components/ui";
-import { apiRequest, errorMessage } from "./api";
+import { api, errorMessage } from "@/lib/api-client";
 import { canManageProject, type ProjectDetail, type ProjectSummary } from "./model";
 
 const NAME_MIN = 2;
@@ -48,10 +48,7 @@ export function EditProjectModal({ open, project, onClose, onSaved }: EditProjec
 
     setSaving(true);
     try {
-      const summary = await apiRequest<ProjectSummary>(`/api/projects/${encodeURIComponent(project.id)}`, {
-        method: "PATCH",
-        body: changes,
-      });
+      const summary = await api.patch<ProjectSummary>(`/api/projects/${encodeURIComponent(project.id)}`, changes);
       onSaved(summary);
       notify.success("Project updated");
       onClose();

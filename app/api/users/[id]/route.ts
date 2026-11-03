@@ -6,6 +6,7 @@ import {
   successResponse,
 } from "@/lib/middleware";
 import { logAudit } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/rate-limit";
 import { AuditAction, AuditResource, UserRole } from "@/lib/types";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/utils/errors";
 
@@ -62,6 +63,7 @@ export async function DELETE(
     if (!deleteUser(id)) throw new NotFoundError("User");
 
     logAudit({
+      ...getRequestMeta(request.headers),
       userId: authContext.user.id,
       action: AuditAction.DELETED,
       resourceType: AuditResource.USER,

@@ -8,6 +8,7 @@ import {
 } from "@/lib/middleware";
 import { PROJECT_ROLES, requireProjectAccess } from "@/lib/authorization";
 import { logAudit } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/rate-limit";
 import { AuditAction, AuditResource } from "@/lib/types";
 import { NotFoundError } from "@/lib/utils/errors";
 import { readRequiredEnum, requireObject } from "@/lib/utils/input";
@@ -40,6 +41,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
         .run(role, new Date().toISOString(), member.id);
 
       logAudit({
+        ...getRequestMeta(request.headers),
         organizationId: project.organizationId ?? undefined,
         userId: authContext.user.id,
         action: AuditAction.ROLE_CHANGED,
@@ -74,6 +76,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
     getDb().prepare("DELETE FROM project_members WHERE id = ?").run(member.id);
 
     logAudit({
+      ...getRequestMeta(request.headers),
       organizationId: project.organizationId ?? undefined,
       userId: authContext.user.id,
       action: AuditAction.REMOVED,

@@ -16,6 +16,7 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { useSession } from "@/components/shell/SessionProvider";
+import { ApiError, api, errorMessage } from "@/lib/api-client";
 import { NewProjectTile, ProjectCard, ProjectCardSkeleton } from "./ProjectCard";
 import { pluralize } from "./format";
 
@@ -37,20 +38,6 @@ const SEARCH_DEBOUNCE_MS = 250;
 const SKELETON_COUNT = 6;
 const ENV_KEYS = ["production", "staging", "development"] as const;
 const gridClass = "grid gap-[18px] [grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr))]";
-
-class UnauthorizedError extends Error {}
-
-async function fetchProjects(signal: AbortSignal): Promise<ProjectSummary[]> {
-  const response = await fetch("/api/projects", { credentials: "same-origin", cache: "no-store", signal });
-  if (response.status === 401) throw new UnauthorizedError("Your session has expired.");
-  const payload: unknown = await response.json().catch(() => null);
-  const body = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : null;
-  if (!response.ok || body?.success !== true || !Array.isArray(body.data)) {
-    const message = typeof body?.error === "string" && body.error ? body.error : `Request failed (${response.status})`;
-    throw new Error(message);
-  }
-  return body.data as ProjectSummary[];
-}
 
 function compareProjects(sort: SortKey) {
   return (a: ProjectSummary, b: ProjectSummary): number => {
@@ -99,7 +86,7 @@ export function ProjectsView() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user, organization } = useSession();
+  const { user } = useSession();
 
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [reloadKey, setReloadKey] = useState(0);
@@ -153,22 +140,15 @@ export function ProjectsView() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchProjects(controller.signal)
+    api
+      .get<ProjectSummary[]>("/api/projects", { signal: controller.signal })
       .then((projects) => setState({ status: "ready", projects, loadedAt: Date.now() }))
       .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
-        if (error instanceof UnauthorizedError) {
-          const next = window.location.pathname + window.location.search;
-          router.replace(`/login?next=${encodeURIComponent(next)}`);
-          return;
-        }
-        setState({
-          status: "error",
-          message: error instanceof Error && error.message ? error.message : "Couldn't reach the server.",
-        });
+        if (controller.signal.aborted || (error instanceof ApiError && error.status === 401)) return;
+        setState({ status: "error", message: errorMessage(error, "Couldn't reach the server.") });
       });
     return () => controller.abort();
-  }, [reloadKey, router]);
+  }, [reloadKey]);
 
   const retry = () => {
     setState({ status: "loading" });
@@ -227,22 +207,21 @@ export function ProjectsView() {
               data-testid="projects-search"
             />
           </div>
-          <div data-testid="projects-filter" className="max-w-full">
-            <SegmentedControl<ScopeFilter>
-              aria-label="Filter projects"
-              value={filter}
-              onChange={setFilter}
-              options={[
-                { value: "all", label: "All", count: state.status === "ready" ? counts.all : undefined },
-                {
-                  value: "organization",
-                  label: "Organisation",
-                  count: state.status === "ready" ? counts.organization : undefined,
-                },
-                { value: "personal", label: "Personal", count: state.status === "ready" ? counts.personal : undefined },
-              ]}
-            />
-          </div>
+          <SegmentedControl<ScopeFilter>
+            aria-label="Filter projects"
+            data-testid="projects-filter"
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: "all", label: "All", count: state.status === "ready" ? counts.all : undefined },
+              {
+                value: "organization",
+                label: "Organisation",
+                count: state.status === "ready" ? counts.organization : undefined,
+              },
+              { value: "personal", label: "Personal", count: state.status === "ready" ? counts.personal : undefined },
+            ]}
+          />
           <div className="flex-1 max-sm:hidden" aria-hidden="true" />
           <DropdownMenu
             label="Sort projects"
@@ -278,57 +257,55 @@ export function ProjectsView() {
       {state.status === "loading" && <ProjectsGridSkeleton />}
 
       {state.status === "error" && (
-        <div data-testid="projects-error" role="alert">
-          <EmptyState
-            icon={<AlertTriangle />}
-            title="Couldn't load projects"
-            description={state.message}
-            action={
-              <Button variant="secondary" leftIcon={<RotateCw aria-hidden="true" />} onClick={retry}>
-                Try again
-              </Button>
-            }
-          />
-        </div>
+        <EmptyState
+          icon={<AlertTriangle />}
+          title="Couldn't load projects"
+          description={state.message}
+          action={
+            <Button variant="secondary" leftIcon={<RotateCw aria-hidden="true" />} onClick={retry}>
+              Try again
+            </Button>
+          }
+          data-testid="projects-error"
+          role="alert"
+        />
       )}
 
       {state.status === "ready" && projects.length === 0 && (
-        <div data-testid="projects-empty">
-          <EmptyState
-            icon={<FolderPlus />}
-            title="No projects yet"
-            description="Projects group the credentials for a service or team. Create your first one, or import an existing vault from JSON in Settings."
-            action={
-              <>
-                <Button asChild leftIcon={<Plus aria-hidden="true" />}>
-                  <Link href="/dashboard/projects/new">Create a project</Link>
-                </Button>
-                <Button asChild variant="secondary">
-                  <Link href="/dashboard/settings">Import from JSON</Link>
-                </Button>
-              </>
-            }
-          />
-        </div>
+        <EmptyState
+          icon={<FolderPlus />}
+          title="No projects yet"
+          description="Projects group the credentials for a service or team. Create your first one, or import an existing vault from JSON in Settings."
+          action={
+            <>
+              <Button asChild leftIcon={<Plus aria-hidden="true" />}>
+                <Link href="/dashboard/projects/new">Create a project</Link>
+              </Button>
+              <Button asChild variant="secondary">
+                <Link href="/dashboard/settings">Import from JSON</Link>
+              </Button>
+            </>
+          }
+          data-testid="projects-empty"
+        />
       )}
 
       {state.status === "ready" && projects.length > 0 && visible.length === 0 && (
-        <div data-testid="projects-no-results">
-          <EmptyState
-            icon={<SearchX />}
-            title="No matching projects"
-            description={
-              query.trim()
-                ? `Nothing matches “${query.trim()}”${filter === "all" ? "" : " with the current filter"}.`
-                : "No projects match the current filter."
-            }
-            action={
-              <Button variant="secondary" onClick={clearFilters}>
-                Clear search and filters
-              </Button>
-            }
-          />
-        </div>
+        <EmptyState
+          icon={<SearchX />}
+          title="No matching projects"
+          description={
+            query.trim()
+              ? `Nothing matches “${query.trim()}”${filter === "all" ? "" : " with the current filter"}.`
+              : "No projects match the current filter."
+          }
+          action={
+            <Button variant="secondary" onClick={clearFilters}>
+              Clear search and filters
+            </Button>
+          }
+          data-testid="projects-no-results"
+        />
       )}
 
       {state.status === "ready" && visible.length > 0 && (
@@ -343,9 +320,6 @@ export function ProjectsView() {
                   project={project}
                   now={state.loadedAt}
                   currentUserId={user?.id ?? null}
-                  organizationName={
-                    organization && organization.id === project.organizationId ? organization.name : null
-                  }
                 />
               </li>
             ))}

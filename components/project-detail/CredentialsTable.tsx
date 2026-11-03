@@ -27,13 +27,13 @@ interface CredentialsTableProps {
 
 export function CredentialsTable({ credentials, canEdit, now, onDelete }: CredentialsTableProps) {
   return (
-    <Table aria-label="Credentials" minWidthClass="min-w-[820px]">
+    <Table aria-label="Credentials" minWidthClass="min-w-[640px]">
       <TableHeader>
         <tr>
           <TableHead>Name</TableHead>
           <TableHead>Environment</TableHead>
           <TableHead>Rotation</TableHead>
-          <TableHead>Updated</TableHead>
+          <TableHead className="hidden 2xl:table-cell">Updated</TableHead>
           <TableHead className="text-right">Actions</TableHead>
         </tr>
       </TableHeader>
@@ -42,9 +42,15 @@ export function CredentialsTable({ credentials, canEdit, now, onDelete }: Creden
           const href = credentialUrl(credential.projectId, credential.id);
           const summary = credentialSummary(credential);
           const rotation = rotationStatus(credential, now);
+          const updated = (
+            <time dateTime={credential.updatedAt} title={formatDateTime(credential.updatedAt)}>
+              {relativeTime(credential.updatedAt, now)}
+            </time>
+          );
           return (
             <TableRow key={credential.id} data-testid="credential-row" data-credential-id={credential.id}>
-              <TableCell className="max-w-[360px]">
+              {/* w-full + max-w-0 lets the name column take the spare width and truncate instead of widening the table. */}
+              <TableCell className="w-full max-w-0">
                 <Link
                   href={href}
                   className="group flex min-w-0 items-center gap-3 rounded-lg text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
@@ -52,13 +58,16 @@ export function CredentialsTable({ credentials, canEdit, now, onDelete }: Creden
                   <ServiceTile type={credential.type} />
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="truncate font-semibold group-hover:text-accent-ink">{credential.name}</span>
-                    <span className="truncate font-mono text-[12.5px] text-muted" title={summary || undefined}>
-                      {summary || serviceLabel(credential.type)}
+                    <span className="flex min-w-0 items-baseline gap-1.5 text-[12.5px] text-muted">
+                      <span className="truncate font-mono" title={summary || undefined}>
+                        {summary || serviceLabel(credential.type)}
+                      </span>
+                      <span className="flex-none whitespace-nowrap 2xl:hidden">· {updated}</span>
                     </span>
                   </span>
                 </Link>
               </TableCell>
-              <TableCell>
+              <TableCell className="whitespace-nowrap">
                 {credential.environment ? (
                   <EnvBadge env={credential.environment} />
                 ) : (
@@ -76,11 +85,7 @@ export function CredentialsTable({ credentials, canEdit, now, onDelete }: Creden
                   {rotation.label}
                 </span>
               </TableCell>
-              <TableCell className="whitespace-nowrap text-[13.5px] text-ink-2">
-                <time dateTime={credential.updatedAt} title={formatDateTime(credential.updatedAt)}>
-                  {relativeTime(credential.updatedAt, now)}
-                </time>
-              </TableCell>
+              <TableCell className="hidden whitespace-nowrap text-[13.5px] text-ink-2 2xl:table-cell">{updated}</TableCell>
               <TableCell className="py-2">
                 <div className="flex justify-end gap-1">
                   <CopySecretButton credential={credential} />

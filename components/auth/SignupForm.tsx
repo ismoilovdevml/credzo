@@ -6,10 +6,11 @@ import { useRouter } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { Button, Field, Input, Label } from "@/components/ui";
 import { REGEX_PATTERNS } from "@/lib/config/constants";
+import { ApiError } from "@/lib/api-client";
 import { FormError } from "./FormError";
 import { PasswordInput } from "./PasswordInput";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PasswordStrength } from "./PasswordStrength";
-import { NETWORK_ERROR_MESSAGE, postAuth, rateLimitMessage, type AuthResponse } from "./auth-api";
+import { authErrorMessage, postAuth } from "./auth-api";
 
 const NAME_MAX_LENGTH = 50;
 const EMAIL_MAX_LENGTH = 254;
@@ -98,41 +99,32 @@ export function SignupForm() {
     }
 
     setLoading(true);
-    let result: AuthResponse<{ success: boolean }>;
     try {
-      result = await postAuth<{ success: boolean }>("/api/auth/signup", {
-        firstName: values.firstName.trim(),
-        lastName: values.lastName.trim(),
-        username: values.username.trim(),
-        email: values.email.trim(),
-        password: values.password,
-      });
-    } catch {
-      setError(NETWORK_ERROR_MESSAGE);
-      setLoading(false);
-      return;
-    }
-
-    if (result.ok && result.data?.success) {
+      await postAuth(
+        "/api/auth/signup",
+        {
+          firstName: values.firstName.trim(),
+          lastName: values.lastName.trim(),
+          username: values.username.trim(),
+          email: values.email.trim(),
+          password: values.password,
+        },
+        "Couldn't create your account. Please try again."
+      );
       router.replace("/dashboard");
       router.refresh();
-      return;
-    }
-
-    const message = result.data?.error ?? "Couldn't create your account. Please try again.";
-    if (result.status === 429) {
-      setError(rateLimitMessage(result.retryAfterSeconds));
-    } else if (result.status === 409) {
+    } catch (err) {
+      const message = authErrorMessage(err);
       setError(message);
-      const field = conflictField(message);
-      if (field) {
-        setServerErrors({ [field]: field === "username" ? "This username is taken." : "This email is already registered." });
-        focusField(field);
+      if (err instanceof ApiError && err.status === 409) {
+        const field = conflictField(message);
+        if (field) {
+          setServerErrors({ [field]: field === "username" ? "This username is taken." : "This email is already registered." });
+          focusField(field);
+        }
       }
-    } else {
-      setError(message);
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const passwordError = errorFor("password");

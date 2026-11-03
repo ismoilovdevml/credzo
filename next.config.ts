@@ -46,7 +46,18 @@ const config: NextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ["better-sqlite3"],
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Share links carry the decryption key in the URL fragment: never leak the page URL
+      // to other origins and keep the pages out of search indexes. Later entries win.
+      {
+        source: "/s/:path*",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        ],
+      },
+    ];
   },
 };
 

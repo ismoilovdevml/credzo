@@ -15,6 +15,7 @@ import {
   loadAccessScope,
 } from "@/lib/authorization";
 import { logProjectCreated } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/rate-limit";
 import { PROJECT_CONFIG } from "@/lib/config/constants";
 import { buildProjectSummaries } from "@/lib/utils/projects";
 import { AuthorizationError, NotFoundError, ValidationError } from "@/lib/utils/errors";
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
 
     const created = createProject(name, description ?? "", authContext.user.id, organizationId);
 
-    logProjectCreated(authContext.user.id, created.id, created.name, organizationId, {
+    logProjectCreated(getRequestMeta(request.headers), authContext.user.id, created.id, created.name, organizationId, {
       visibility: created.visibility,
     });
 

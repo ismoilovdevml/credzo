@@ -18,6 +18,7 @@ export enum AuditAction {
   DELETED = "deleted",
   ACCESSED = "accessed",
   INVITED = "invited",
+  INVITATION_REVOKED = "invitation_revoked",
   REMOVED = "removed",
   ROLE_CHANGED = "role_changed",
   LOGIN = "login",
@@ -51,6 +52,7 @@ export enum InvitationStatus {
   ACCEPTED = "accepted",
   REJECTED = "rejected",
   EXPIRED = "expired",
+  REVOKED = "revoked",
 }
 
 // ===== User & Authentication =====
@@ -418,6 +420,8 @@ export interface SecurityAlert {
   severity: "high" | "medium";
   /** Username, IP address or user display name the alert is about. */
   subject: string;
+  /** The user behind a mass_reveal alert; null for brute_force (the target may not be an account). */
+  userId: string | null;
   count: number;
   firstSeen: string;
   lastSeen: string;

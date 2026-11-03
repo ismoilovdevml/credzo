@@ -3,14 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardHeader, Skeleton } from "@/components/ui";
-import { apiRequest, errorMessage } from "@/components/generator/api";
+import { api, errorMessage } from "@/lib/api-client";
 import type { AuditLog } from "@/lib/types";
 import { cn } from "@/lib/utils/cn";
 import { formatAgo, formatDateTime } from "./format";
 
 const MAX_EVENTS = 8;
-/** The audit search scans recent org events; ask for enough to find this credential's. */
-const SEARCH_LIMIT = 100;
 
 const CHANGE_LABELS: Record<string, string> = {
   name: "name",
@@ -34,6 +32,7 @@ function describe(log: AuditLog): string {
     case "deleted":
       return "deleted this credential";
     case "updated": {
+      if (log.details?.rotated === true) return "marked this credential rotated";
       const changes = log.details?.changes;
       const keys =
         changes && typeof changes === "object" ? Object.keys(changes).map((key) => CHANGE_LABELS[key] ?? key) : [];
@@ -63,14 +62,11 @@ export function ActivityCard({ credentialId, organizationId, now, resolveName }:
 
   useEffect(() => {
     let cancelled = false;
-    const query = new URLSearchParams({ search: credentialId, limit: String(SEARCH_LIMIT) });
-    apiRequest<{ logs: AuditLog[] }>(`/api/organizations/${organizationId}/audit?${query}`)
+    const query = new URLSearchParams({ resourceType: "credential", resourceId: credentialId, limit: String(MAX_EVENTS) });
+    api
+      .get<{ logs: AuditLog[] }>(`/api/organizations/${encodeURIComponent(organizationId)}/audit?${query}`)
       .then((data) => {
-        if (cancelled) return;
-        const events = (data.logs ?? [])
-          .filter((log) => log.resourceType === "credential" && log.resourceId === credentialId)
-          .slice(0, MAX_EVENTS);
-        setState({ status: "ready", events });
+        if (!cancelled) setState({ status: "ready", events: data.logs });
       })
       .catch((error: unknown) => {
         if (!cancelled) setState({ status: "error", message: errorMessage(error, "Couldn't load activity") });

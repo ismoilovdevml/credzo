@@ -6,7 +6,7 @@ import { Lock } from "lucide-react";
 import { ServiceIcon } from "@/components/ServiceIcon";
 import { notify } from "@/components/Toast";
 import { getServiceMetadata } from "@/lib/services";
-import { apiRequest, errorMessage } from "./api";
+import { api, errorMessage } from "@/lib/api-client";
 import { CredentialDetailsForm } from "./CredentialDetailsForm";
 import { FormHeader, FormSkeleton, LoadError, StepCard, ViewerNotice, useLeaveGuard } from "./FormChrome";
 import {
@@ -44,11 +44,11 @@ export function EditCredentialScreen({ projectId, credentialId }: { projectId: s
     const base = `/api/credentials/${encodeURIComponent(credentialId)}`;
 
     (async () => {
-      const credential = await apiRequest<CredentialDetail>(base);
+      const credential = await api.get<CredentialDetail>(base);
       if (credential.projectId !== projectId) throw new Error("This credential doesn't belong to this project.");
       if (credential.currentUserRole === "viewer") return { status: "viewer", credential } as const;
       // Secrets are needed to prefill the form; reveal is audit-logged as an access.
-      const revealed = await apiRequest<{ fields: Record<string, string> }>(`${base}/reveal`, { method: "POST" });
+      const revealed = await api.post<{ fields: Record<string, string> }>(`${base}/reveal`);
       return { status: "ready", credential, initial: formValuesFromCredential(credential, revealed.fields) } as const;
     })()
       .then((next) => {
@@ -99,7 +99,7 @@ export function EditCredentialScreen({ projectId, credentialId }: { projectId: s
 
     setSaving(true);
     try {
-      await apiRequest(`/api/credentials/${encodeURIComponent(credentialId)}`, { method: "PATCH", body: patch });
+      await api.patch(`/api/credentials/${encodeURIComponent(credentialId)}`, patch);
       notify.success("Changes saved");
       router.push(detailHref);
     } catch (error) {

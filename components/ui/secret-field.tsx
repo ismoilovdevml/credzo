@@ -7,10 +7,11 @@ import { cn } from "@/lib/utils/cn";
 import { IconButton } from "./button";
 import { CopyButton } from "./copy-button";
 import { Spinner } from "./spinner";
+import type { DataAttributes } from "./types";
 
 const MASK = "••••••••••••";
 
-export interface SecretFieldProps {
+export interface SecretFieldProps extends DataAttributes {
   /** Plain value, when already loaded. Leave undefined and pass `reveal` to fetch on demand. */
   value?: string;
   /** Loads the secret on first reveal/copy (e.g. a decrypt API call). The result is cached. */
@@ -38,6 +39,7 @@ export function SecretField({
   onReveal,
   onCopy,
   className,
+  ...rest
 }: SecretFieldProps) {
   const [revealed, setRevealed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -76,11 +78,15 @@ export function SecretField({
   };
 
   if (value === "" && !reveal) {
-    return <span className={cn("text-[14px] text-muted", className)}>Not set</span>;
+    return (
+      <span className={cn("text-[14px] text-muted", className)} {...rest}>
+        Not set
+      </span>
+    );
   }
 
   return (
-    <div className={cn("flex min-w-0 items-center gap-1", className)}>
+    <div className={cn("flex min-w-0 items-center gap-1", className)} {...rest}>
       <span
         className={cn(
           "min-w-0 flex-1 break-all font-mono text-[14px] text-ink",

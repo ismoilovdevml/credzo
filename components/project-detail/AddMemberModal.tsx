@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { notify } from "@/components/Toast";
 import { Button, Field, Modal, Select, Skeleton } from "@/components/ui";
-import { apiRequest, errorMessage } from "./api";
+import { api, errorMessage } from "@/lib/api-client";
 import {
   PROJECT_ROLE_OPTIONS,
   userName,
@@ -38,7 +38,7 @@ export function AddMemberModal({ open, project, onClose, onAdded }: AddMemberMod
   useEffect(() => {
     if (!open || !organizationId) return;
     let cancelled = false;
-    apiRequest<OrganizationMemberView[]>(`/api/organizations/${encodeURIComponent(organizationId)}/members`)
+    api.get<OrganizationMemberView[]>(`/api/organizations/${encodeURIComponent(organizationId)}/members`)
       .then((members) => {
         if (!cancelled) setCandidates({ status: "ready", members });
       })
@@ -70,9 +70,9 @@ export function AddMemberModal({ open, project, onClose, onAdded }: AddMemberMod
     if (!selected) return;
     setSaving(true);
     try {
-      const member = await apiRequest<ProjectMemberView>(`/api/projects/${encodeURIComponent(project.id)}/members`, {
-        method: "POST",
-        body: { userId: selected, role },
+      const member = await api.post<ProjectMemberView>(`/api/projects/${encodeURIComponent(project.id)}/members`, {
+        userId: selected,
+        role,
       });
       onAdded(member);
       notify.success(`${userName(member.user)} added to the project`);

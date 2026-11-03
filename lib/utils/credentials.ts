@@ -6,6 +6,7 @@
  * fields that hold a value. Secrets are only returned by the audited reveal endpoint.
  */
 
+import type { ProjectRef } from '@/lib/authorization';
 import { CREDENTIAL_CONFIG } from '@/lib/config/constants';
 import { SERVICE_DEFINITIONS, getServiceMetadata } from '@/lib/services';
 import { CREDENTIAL_ENVIRONMENTS } from '@/lib/types';
@@ -54,6 +55,8 @@ function hasValue(value: unknown): boolean {
 export interface CredentialView {
   id: string;
   projectId: string;
+  /** Organization of the owning project; null for personal projects. */
+  organizationId: string | null;
   name: string;
   type: ServiceType;
   description: string;
@@ -71,7 +74,10 @@ export interface CredentialView {
   updatedAt: string;
 }
 
-export function toCredentialView(credential: Credential, projectId: string): CredentialView {
+export function toCredentialView(
+  credential: Credential,
+  project: Pick<ProjectRef, 'id' | 'organizationId'>
+): CredentialView {
   const fields: Record<string, string> = {};
   const secretFields: string[] = [];
 
@@ -86,7 +92,8 @@ export function toCredentialView(credential: Credential, projectId: string): Cre
 
   return {
     id: credential.id,
-    projectId,
+    projectId: project.id,
+    organizationId: project.organizationId,
     name: credential.name,
     type: credential.type,
     description: credential.description ?? '',

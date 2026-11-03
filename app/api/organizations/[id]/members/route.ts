@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   addOrganizationMember,
   createInvitation,
-  getOrganizationInvitations,
   getOrganizationMember,
   getOrganizationMembers,
+  getPendingInvitations,
   getUserByEmail,
 } from "@/lib/db";
 import {
@@ -19,8 +19,9 @@ import {
   requireOrganizationAccess,
 } from "@/lib/authorization";
 import { logMemberInvited } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/rate-limit";
 import { INVITATION_CONFIG } from "@/lib/config/constants";
-import { InvitationStatus, type OrganizationMember } from "@/lib/types";
+import type { OrganizationMember } from "@/lib/types";
 import { ConflictError } from "@/lib/utils/errors";
 import { readRequiredEmail, readRequiredEnum, requireObject } from "@/lib/utils/input";
 import { getUserSummary } from "@/lib/utils/projects";
@@ -79,16 +80,13 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         role,
         invitedBy: authContext.user.id,
       });
-      logMemberInvited(authContext.user.id, organization.id, email, role);
+      logMemberInvited(getRequestMeta(request.headers), authContext.user.id, organization.id, email, role);
       return successResponse({ type: "member", member: withUser(member) }, 201);
     }
 
     const now = Date.now();
-    const hasPendingInvitation = getOrganizationInvitations(organization.id).some(
-      (invitation) =>
-        invitation.email.toLowerCase() === email &&
-        invitation.status === InvitationStatus.PENDING &&
-        Date.parse(invitation.expiresAt) > now
+    const hasPendingInvitation = getPendingInvitations(organization.id).some(
+      (invitation) => invitation.email.toLowerCase() === email
     );
     if (hasPendingInvitation) {
       throw new ConflictError("An invitation for this email is already pending");
@@ -101,7 +99,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       invitedBy: authContext.user.id,
       expiresAt: new Date(now + INVITATION_CONFIG.EXPIRY_MS).toISOString(),
     });
-    logMemberInvited(authContext.user.id, organization.id, email, role);
+    logMemberInvited(getRequestMeta(request.headers), authContext.user.id, organization.id, email, role);
 
     return successResponse(
       {

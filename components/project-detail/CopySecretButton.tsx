@@ -5,7 +5,7 @@ import { Check, Copy } from "lucide-react";
 import { notify } from "@/components/Toast";
 import { IconButton } from "@/components/ui";
 import { CLIPBOARD_CLEAR_MS, useClipboard } from "@/hooks/useClipboard";
-import { apiRequest, errorMessage } from "./api";
+import { api, errorMessage } from "@/lib/api-client";
 import { fieldLabel, primarySecretField, type CredentialView } from "./model";
 
 /** Reveals the credential's primary secret (audit-logged) and copies it; the clipboard is wiped after 30 s. */
@@ -19,9 +19,8 @@ export function CopySecretButton({ credential }: { credential: CredentialView })
     if (!field) return;
     setBusy(true);
     try {
-      const { fields } = await apiRequest<{ fields: Record<string, string> }>(
-        `/api/credentials/${encodeURIComponent(credential.id)}/reveal`,
-        { method: "POST" }
+      const { fields } = await api.post<{ fields: Record<string, string> }>(
+        `/api/credentials/${encodeURIComponent(credential.id)}/reveal`
       );
       const secret = fields[field];
       if (!secret) throw new Error("This credential has no secret value to copy");

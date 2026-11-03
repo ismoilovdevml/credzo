@@ -5,8 +5,9 @@ import { Check, Copy } from "lucide-react";
 import { notify } from "@/components/Toast";
 import { CLIPBOARD_CLEAR_MS, useClipboard } from "@/hooks/useClipboard";
 import { Button, IconButton } from "./button";
+import type { DataAttributes } from "./types";
 
-export interface CopyButtonProps {
+export interface CopyButtonProps extends DataAttributes {
   /** Text to copy, or a (possibly async) getter, e.g. one that decrypts a secret on demand. */
   value: string | (() => string | Promise<string>);
   /** Accessible name, e.g. "Copy password". Default "Copy". */
@@ -36,6 +37,7 @@ export function CopyButton({
   children,
   onCopied,
   className,
+  ...rest
 }: CopyButtonProps) {
   const { copy, copied } = useClipboard({ clearAfterMs: sensitive ? CLIPBOARD_CLEAR_MS : 0 });
   const [busy, setBusy] = useState(false);
@@ -68,6 +70,7 @@ export function CopyButton({
         loading={busy}
         leftIcon={icon}
         className={className}
+        {...rest}
       >
         {copied ? "Copied" : (children ?? label)}
       </Button>
@@ -82,6 +85,7 @@ export function CopyButton({
       disabled={busy}
       aria-busy={busy || undefined}
       className={className}
+      {...rest}
     >
       {icon}
     </IconButton>

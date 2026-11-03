@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCredentialById } from "@/lib/db";
 import {
-  getClientIp,
-  getUserAgent,
   handleRouteError,
   requireAuth,
   successResponse,
 } from "@/lib/middleware";
 import { requireCredentialAccess } from "@/lib/authorization";
 import { logCredentialAccessed } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/rate-limit";
 import { getSecretFieldValues } from "@/lib/utils/credentials";
 import { NotFoundError } from "@/lib/utils/errors";
 
@@ -33,14 +32,13 @@ export async function POST(
     if (!credential) throw new NotFoundError("Credential");
 
     logCredentialAccessed(
+      getRequestMeta(request.headers),
       authContext.user.id,
       credential.id,
       credential.name,
       credential.type,
       project.id,
-      project.organizationId ?? undefined,
-      getClientIp(request),
-      getUserAgent(request)
+      project.organizationId ?? undefined
     );
 
     return successResponse({ id: credential.id, fields: getSecretFieldValues(credential) });

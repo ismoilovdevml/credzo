@@ -8,6 +8,7 @@ import {
 } from "@/lib/middleware";
 import { getProjectRef, hasProjectAccess, requireProjectAccess } from "@/lib/authorization";
 import { logProjectDeleted, logProjectUpdated } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/rate-limit";
 import { PROJECT_CONFIG } from "@/lib/config/constants";
 import { toCredentialView } from "@/lib/utils/credentials";
 import { AuthorizationError, NotFoundError, ValidationError } from "@/lib/utils/errors";
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       owner: getUserSummary(project.ownerId),
       members: listProjectMembers(project.id),
       credentials: getProjectCredentials(project.id).map((credential) =>
-        toCredentialView(credential, project.id)
+        toCredentialView(credential, project)
       ),
     });
   } catch (error) {
@@ -99,6 +100,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 
     updateProject(id, { name, description, visibility });
     logProjectUpdated(
+      getRequestMeta(request.headers),
       authContext.user.id,
       project.id,
       name ?? project.name,
@@ -130,7 +132,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
 
     if (!deleteProject(id)) throw new NotFoundError("Project");
 
-    logProjectDeleted(authContext.user.id, project.id, project.name, project.organizationId ?? undefined);
+    logProjectDeleted(getRequestMeta(request.headers), authContext.user.id, project.id, project.name, project.organizationId ?? undefined);
 
     return successResponse({ id: project.id });
   } catch (error) {

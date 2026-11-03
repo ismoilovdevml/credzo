@@ -1,7 +1,7 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
 
-export interface EmptyStateProps {
+export interface EmptyStateProps extends Omit<HTMLAttributes<HTMLDivElement>, "title" | "children"> {
   /** A lucide icon element, e.g. `<FolderOpen />`. */
   icon?: ReactNode;
   title: ReactNode;
@@ -10,11 +10,10 @@ export interface EmptyStateProps {
   action?: ReactNode;
   /** Drop the dashed border when placed inside a Card. */
   bare?: boolean;
-  className?: string;
 }
 
 /** Centered placeholder for empty lists, empty search results and first-run screens. */
-export function EmptyState({ icon, title, description, action, bare, className }: EmptyStateProps) {
+export function EmptyState({ icon, title, description, action, bare, className, ...rest }: EmptyStateProps) {
   return (
     <div
       className={cn(
@@ -22,6 +21,7 @@ export function EmptyState({ icon, title, description, action, bare, className }
         !bare && "rounded-2xl border border-dashed border-line-strong bg-surface",
         className
       )}
+      {...rest}
     >
       {icon && (
         <span className="mb-1 flex h-12 w-12 items-center justify-center rounded-xl bg-accent-soft text-accent-ink [&_svg]:h-6 [&_svg]:w-6">

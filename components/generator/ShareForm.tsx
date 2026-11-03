@@ -6,7 +6,7 @@ import { Button, Checkbox, CopyButton, Field, IconButton, Input, SegmentedContro
 import { notify } from "@/components/Toast";
 import { CLIPBOARD_CLEAR_MS } from "@/hooks/useClipboard";
 import { MAX_SECRET_BYTES, encryptShare } from "@/lib/share-crypto";
-import { ApiError, apiRequest, errorMessage } from "./api";
+import { ApiError, api, errorMessage } from "@/lib/api-client";
 import { EXPIRY_OPTIONS, VIEW_OPTIONS, formatDateTime, pluralize, type ExpiryOption, type ViewOption } from "./format";
 
 const MAX_LABEL_LENGTH = 120;
@@ -67,17 +67,14 @@ export function ShareForm({ generatedPassword, onCreated }: ShareFormProps) {
     try {
       const encrypted = await encryptShare(secret, requirePassphrase ? passphrase : undefined);
       const maxViews = Number(views);
-      const share = await apiRequest<{ id: string; expiresAt: string }>("/api/shares", {
-        method: "POST",
-        body: {
-          label: label.trim() || undefined,
-          ciphertext: encrypted.ciphertext,
-          iv: encrypted.iv,
-          salt: encrypted.salt ?? undefined,
-          requiresPassphrase: requirePassphrase,
-          maxViews,
-          expiresIn,
-        },
+      const share = await api.post<{ id: string; expiresAt: string }>("/api/shares", {
+        label: label.trim() || undefined,
+        ciphertext: encrypted.ciphertext,
+        iv: encrypted.iv,
+        salt: encrypted.salt ?? undefined,
+        requiresPassphrase: requirePassphrase,
+        maxViews,
+        expiresIn,
       });
       setCreated({
         url: `${window.location.origin}/s/${share.id}#${encrypted.linkKey}`,
@@ -146,19 +143,21 @@ export function ShareForm({ generatedPassword, onCreated }: ShareFormProps) {
       </Field>
 
       <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
-        <div className="flex min-w-0 flex-col gap-1.5" data-testid="share-views">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <span className="text-sm font-semibold text-ink-2">Expires after</span>
           <SegmentedControl
             aria-label="Expires after number of views"
+            data-testid="share-views"
             value={views}
             onChange={setViews}
             options={VIEW_OPTIONS.map((option) => ({ ...option }))}
           />
         </div>
-        <div className="flex min-w-0 flex-col gap-1.5" data-testid="share-expiry">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <span className="text-sm font-semibold text-ink-2">Or after</span>
           <SegmentedControl
             aria-label="Or after this much time"
+            data-testid="share-expiry"
             value={expiresIn}
             onChange={setExpiresIn}
             options={EXPIRY_OPTIONS.map((option) => ({ ...option }))}
@@ -218,9 +217,13 @@ export function ShareForm({ generatedPassword, onCreated }: ShareFormProps) {
             >
               {created.url}
             </code>
-            <span data-testid="share-link-copy">
-              <CopyButton value={created.url} label="Copy link" sensitive successMessage={`Link copied. Clipboard clears in ${CLIPBOARD_CLEAR_MS / 1000}s.`} />
-            </span>
+            <CopyButton
+              value={created.url}
+              label="Copy link"
+              sensitive
+              successMessage={`Link copied. Clipboard clears in ${CLIPBOARD_CLEAR_MS / 1000}s.`}
+              data-testid="share-link-copy"
+            />
           </div>
           <p className="text-[13px] text-muted">
             Copy it now: the key lives only in this link, so Credzo can&apos;t show it again.

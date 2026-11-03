@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { Button, Checkbox, Field, Input } from "@/components/ui";
+import { ApiError } from "@/lib/api-client";
 import { FormError } from "./FormError";
 import { PasswordInput } from "./PasswordInput";
 import { TwoFactorStep } from "./TwoFactorStep";
-import { NETWORK_ERROR_MESSAGE, postAuth, rateLimitMessage, safeNextPath, type AuthResponse } from "./auth-api";
+import { authErrorMessage, postAuth, safeNextPath } from "./auth-api";
 
 const INVALID_CREDENTIALS_MESSAGE = "Incorrect username, email or password.";
 
@@ -34,34 +35,23 @@ export function LoginForm({ next }: { next?: string }) {
     setError(null);
     setLoading(true);
 
-    let result: AuthResponse<LoginResponse>;
     try {
-      result = await postAuth<LoginResponse>("/api/auth/login", {
-        username: identifier.trim(),
-        password,
-        remember,
-      });
-    } catch {
-      setError(NETWORK_ERROR_MESSAGE);
-      setLoading(false);
-      return;
-    }
-
-    if (result.ok && result.data?.success) {
-      if (result.data.requiresTwoFactor && result.data.challenge) {
-        setChallenge(result.data.challenge);
+      const result = await postAuth<LoginResponse>(
+        "/api/auth/login",
+        { username: identifier.trim(), password, remember },
+        "Sign-in failed. Please try again."
+      );
+      if (result.requiresTwoFactor && result.challenge) {
+        setChallenge(result.challenge);
         setLoading(false);
         return;
       }
       // Keep the button busy until the dashboard replaces this page.
       finish();
-      return;
+    } catch (err) {
+      setError(err instanceof ApiError && err.status === 401 ? INVALID_CREDENTIALS_MESSAGE : authErrorMessage(err));
+      setLoading(false);
     }
-
-    if (result.status === 401) setError(INVALID_CREDENTIALS_MESSAGE);
-    else if (result.status === 429) setError(rateLimitMessage(result.retryAfterSeconds));
-    else setError(result.data?.error ?? "Sign-in failed. Please try again.");
-    setLoading(false);
   };
 
   if (challenge) {

@@ -7,7 +7,7 @@ import { Button, Card, CopyButton, Field, IconButton, Input, Logo, Skeleton } fr
 import { useIsClient } from "@/hooks/useIsClient";
 import { ShareDecryptError, decryptShare, parseLinkKey } from "@/lib/share-crypto";
 import { cn } from "@/lib/utils/cn";
-import { ApiError, apiRequest, errorMessage } from "./api";
+import { ApiError, api, errorMessage } from "@/lib/api-client";
 import { formatDateTime, formatTimeLeft, pluralize, useNow } from "./format";
 
 type UnavailableReason = "not_found" | "expired" | "revoked" | "consumed";
@@ -123,7 +123,7 @@ function OpenShareFlow({ id }: { id: string }) {
   useEffect(() => {
     if (!checking) return;
     let cancelled = false;
-    apiRequest<ShareMeta>(`/api/shares/${encodeURIComponent(id)}/meta`, { redirectOn401: false })
+    api.get<ShareMeta>(`/api/shares/${encodeURIComponent(id)}/meta`, { redirectOn401: false })
       .then((meta) => {
         if (cancelled) return;
         setState(
@@ -181,8 +181,7 @@ function OpenShareFlow({ id }: { id: string }) {
         await decrypt(state.payload);
         return;
       }
-      const payload = await apiRequest<OpenPayload>(`/api/shares/${encodeURIComponent(id)}/open`, {
-        method: "POST",
+      const payload = await api.post<OpenPayload>(`/api/shares/${encodeURIComponent(id)}/open`, undefined, {
         redirectOn401: false,
       });
       await decrypt(payload);

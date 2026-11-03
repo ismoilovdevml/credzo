@@ -1274,7 +1274,8 @@ export function createCredential(
 
 /**
  * Applies a partial update. `lastRotatedAt` is bumped whenever a secret field
- * value changes. Throws ValidationError like createCredential.
+ * value changes, or set from `updates.lastRotatedAt` (a rotation done outside
+ * Credzo). Throws ValidationError like createCredential.
  */
 export function updateCredential(id: string, updates: Partial<Credential>, updatedBy: string): Credential | null {
   const existing = getCredentialById(id);
@@ -1315,6 +1316,10 @@ export function updateCredential(id: string, updates: Partial<Credential>, updat
   if (updates.rotationDays !== undefined) {
     fields.push("rotation_days = ?");
     values.push(normalizeRotationDays(updates.rotationDays));
+  }
+  if (updates.lastRotatedAt !== undefined && !fields.includes("last_rotated_at = ?")) {
+    fields.push("last_rotated_at = ?");
+    values.push(updates.lastRotatedAt);
   }
 
   fields.push("updated_by = ?", "updated_at = ?");
@@ -1455,11 +1460,25 @@ export interface AuditLogFilters {
   userId?: string;
   action?: string;
   resourceType?: string;
+  resourceId?: string;
   /** ISO timestamp; only events at or after it. */
   since?: string;
+  /** ISO timestamp; only events at or before it. */
+  until?: string;
+  /**
+   * Case-insensitive substring over action, resource type and id, details, IP
+   * address and the actor's username / name.
+   */
+  search?: string;
 }
 
-function auditLogWhere(filters: AuditLogFilters = {}): { where: string; params: SqlValue[] } {
+/** `%term%` with LIKE wildcards escaped by a backslash, so user input matches literally. */
+function likePattern(term: string): string {
+  return `%${term.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+}
+
+/** FROM/WHERE clause over `audit_logs a` (joined with the actor in `u`) for the filters. */
+function auditLogQuery(filters: AuditLogFilters = {}): { from: string; where: string; params: SqlValue[] } {
   const conditions: string[] = [];
   const params: SqlValue[] = [];
   const add = (condition: string, value: string | undefined) => {
@@ -1468,18 +1487,39 @@ function auditLogWhere(filters: AuditLogFilters = {}): { where: string; params: 
     params.push(value);
   };
 
-  add("organization_id = ?", filters.organizationId);
-  add("user_id = ?", filters.userId);
-  add("action = ?", filters.action);
-  add("resource_type = ?", filters.resourceType);
-  add("timestamp >= ?", filters.since);
+  add("a.organization_id = ?", filters.organizationId);
+  add("a.user_id = ?", filters.userId);
+  add("a.action = ?", filters.action);
+  add("a.resource_type = ?", filters.resourceType);
+  add("a.resource_id = ?", filters.resourceId);
+  add("a.timestamp >= ?", filters.since);
+  add("a.timestamp <= ?", filters.until);
 
-  return { where: conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "", params };
+  const search = filters.search;
+  if (search) {
+    const columns = [
+      "a.action",
+      "a.resource_type",
+      "a.resource_id",
+      "a.details",
+      "a.ip_address",
+      "u.username",
+      "u.first_name || ' ' || u.last_name",
+    ];
+    conditions.push(`(${columns.map((column) => `${column} LIKE ? ESCAPE '\\'`).join(" OR ")})`);
+    params.push(...columns.map(() => likePattern(search)));
+  }
+
+  return {
+    from: search ? "audit_logs a LEFT JOIN users u ON u.id = a.user_id" : "audit_logs a",
+    where: conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "",
+    params,
+  };
 }
 
 export function getAuditLogs(filters?: AuditLogFilters & { limit?: number; offset?: number }): AuditLog[] {
-  const { where, params } = auditLogWhere(filters);
-  let query = `SELECT * FROM audit_logs ${where} ORDER BY timestamp DESC`;
+  const { from, where, params } = auditLogQuery(filters);
+  let query = `SELECT a.* FROM ${from} ${where} ORDER BY a.timestamp DESC`;
 
   if (filters?.limit) {
     query += " LIMIT ?";
@@ -1508,8 +1548,8 @@ export function getAuditLogs(filters?: AuditLogFilters & { limit?: number; offse
 
 /** Number of audit events matching the filters (for pagination totals). */
 export function countAuditLogs(filters?: AuditLogFilters): number {
-  const { where, params } = auditLogWhere(filters);
-  const row = getDb().prepare(`SELECT COUNT(*) AS count FROM audit_logs ${where}`).get(...params) as { count: number };
+  const { from, where, params } = auditLogQuery(filters);
+  const row = getDb().prepare(`SELECT COUNT(*) AS count FROM ${from} ${where}`).get(...params) as { count: number };
   return row.count;
 }
 
@@ -1739,18 +1779,30 @@ export function getInvitationByToken(token: string): Invitation | null {
   return row ? mapInvitationFromDb(row) : null;
 }
 
-export function getOrganizationInvitations(organizationId: string): Invitation[] {
+/** Pending invitations of an organization that have not expired, newest first. */
+export function getPendingInvitations(organizationId: string): Invitation[] {
   const rows = getDb()
-    .prepare("SELECT * FROM invitations WHERE organization_id = ? ORDER BY created_at DESC")
-    .all(organizationId) as InvitationRow[];
+    .prepare(
+      `SELECT * FROM invitations
+       WHERE organization_id = ? AND status = 'pending' AND expires_at > ?
+       ORDER BY created_at DESC`
+    )
+    .all(organizationId, new Date().toISOString()) as InvitationRow[];
   return rows.map(mapInvitationFromDb);
 }
 
-export function updateInvitationStatus(token: string, status: string): Invitation | null {
-  getDb()
-    .prepare("UPDATE invitations SET status = ?, responded_at = ? WHERE token = ?")
-    .run(status, new Date().toISOString(), token);
-  return getInvitationByToken(token);
+/** Marks a pending invitation of the organization as revoked; returns it, or null when there was none. */
+export function revokeInvitation(organizationId: string, invitationId: string): Invitation | null {
+  const database = getDb();
+  const result = database
+    .prepare(
+      `UPDATE invitations SET status = 'revoked', responded_at = ?
+       WHERE id = ? AND organization_id = ? AND status = 'pending'`
+    )
+    .run(new Date().toISOString(), invitationId, organizationId);
+  if (result.changes === 0) return null;
+  const row = database.prepare("SELECT * FROM invitations WHERE id = ?").get(invitationId) as InvitationRow;
+  return mapInvitationFromDb(row);
 }
 
 /**
@@ -1997,6 +2049,7 @@ export function getAdminStats(range: StatsRange, organizationId: string | null):
         type: "brute_force",
         severity: burst.count >= BRUTE_FORCE_THRESHOLD * 2 ? "high" : "medium",
         subject,
+        userId: null,
         count: burst.count,
         firstSeen: burst.firstSeen,
         lastSeen: burst.lastSeen,
@@ -2023,6 +2076,7 @@ export function getAdminStats(range: StatsRange, organizationId: string | null):
       type: "mass_reveal",
       severity: burst.count >= MASS_REVEAL_THRESHOLD * 3 ? "high" : "medium",
       subject,
+      userId,
       count: burst.count,
       firstSeen: burst.firstSeen,
       lastSeen: burst.lastSeen,

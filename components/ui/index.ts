@@ -25,3 +25,4 @@ export { Spinner } from "./spinner";
 export { StatCard, type StatCardProps } from "./stat-card";
 export { Tab, TabList, TabPanel, Tabs, type TabProps, type TabsProps } from "./tabs";
 export { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./table";
+export type { DataAttributes } from "./types";

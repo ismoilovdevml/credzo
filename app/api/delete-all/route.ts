@@ -12,6 +12,7 @@ import {
   loadAccessScope,
 } from "@/lib/authorization";
 import { logProjectDeleted } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/rate-limit";
 import { ValidationError } from "@/lib/utils/errors";
 import { requireObject } from "@/lib/utils/input";
 
@@ -40,8 +41,9 @@ export async function POST(request: NextRequest) {
 
     const deleted = getDb().transaction(() => owned.filter((project) => deleteProject(project.id)))();
 
+    const meta = getRequestMeta(request.headers);
     for (const project of deleted) {
-      logProjectDeleted(authContext.user.id, project.id, project.name, project.organizationId ?? undefined);
+      logProjectDeleted(meta, authContext.user.id, project.id, project.name, project.organizationId ?? undefined);
     }
 
     return successResponse({ deletedProjects: deleted.length });

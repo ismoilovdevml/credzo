@@ -14,14 +14,12 @@ import {
 
 interface ProjectHeaderProps {
   project: ProjectDetail;
-  /** Name of the project's organisation when known (the active organisation). */
-  organizationName: string | null;
   onAddMember: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-export function ProjectHeader({ project, organizationName, onAddMember, onEdit, onDelete }: ProjectHeaderProps) {
+export function ProjectHeader({ project, onAddMember, onEdit, onDelete }: ProjectHeaderProps) {
   const role = project.currentUserRole;
   const isOrgProject = project.organizationId !== null;
   const ownerName = project.owner ? userName(project.owner) : null;
@@ -38,7 +36,7 @@ export function ProjectHeader({ project, organizationName, onAddMember, onEdit, 
           {isOrgProject ? (
             <Badge tone="neutral">
               <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
-              {organizationName ?? "Organization"}
+              {project.organizationName ?? "Organization"}
             </Badge>
           ) : (
             <Badge tone="neutral">

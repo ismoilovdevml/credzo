@@ -101,13 +101,17 @@ export function formatDate(iso: string | null | undefined): string {
 }
 
 /**
- * Audit-log link for an alert. Brute-force subjects are a username or IP; bulk-reveal
- * subjects read "First Last (@username)", so only the username is used as the search term.
+ * Audit-log link for an alert: a bulk reveal filters to that user's reveals; a brute-force
+ * burst searches failed sign-ins for its subject (a username or IP address).
  */
 export function alertAuditHref(alert: SecurityAlert): string {
   const params = new URLSearchParams();
-  params.set("action", alert.type === "brute_force" ? "login_failed" : "accessed");
-  const username = alert.type === "mass_reveal" ? /\(@([^)]+)\)\s*$/.exec(alert.subject)?.[1] : undefined;
-  params.set("search", username ?? alert.subject);
+  if (alert.type === "brute_force") {
+    params.set("action", "login_failed");
+    params.set("search", alert.subject);
+  } else {
+    params.set("action", "accessed");
+    if (alert.userId) params.set("user", alert.userId);
+  }
   return `/dashboard/audit?${params.toString()}`;
 }

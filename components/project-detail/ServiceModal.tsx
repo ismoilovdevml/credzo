@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { notify } from "@/components/Toast";
 import { Button, Field, Input, Modal, Textarea } from "@/components/ui";
 import type { Service } from "@/lib/types";
-import { apiRequest, errorMessage } from "./api";
+import { api, errorMessage } from "@/lib/api-client";
 
 const NAME_MAX = 100;
 const DESCRIPTION_MAX = 500;
@@ -66,10 +66,10 @@ export function ServiceModal({ open, projectId, service, onClose, onSaved }: Ser
     const base = `/api/projects/${encodeURIComponent(projectId)}/services`;
     setSaving(true);
     try {
-      const saved = await apiRequest<Service>(service ? `${base}/${encodeURIComponent(service.id)}` : base, {
-        method: service ? "PATCH" : "POST",
-        body: { name: name.trim(), description: description.trim(), url: url.trim(), tags: tagList },
-      });
+      const body = { name: name.trim(), description: description.trim(), url: url.trim(), tags: tagList };
+      const saved = service
+        ? await api.patch<Service>(`${base}/${encodeURIComponent(service.id)}`, body)
+        : await api.post<Service>(base, body);
       onSaved(saved);
       notify.success(service ? "Service updated" : "Service added");
       onClose();

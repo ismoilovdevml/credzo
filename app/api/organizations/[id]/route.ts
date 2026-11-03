@@ -8,6 +8,7 @@ import {
 } from "@/lib/middleware";
 import { requireOrganizationAccess } from "@/lib/authorization";
 import { logOrganizationUpdated } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/rate-limit";
 import { ORGANIZATION_CONFIG } from "@/lib/config/constants";
 import { NotFoundError, ValidationError } from "@/lib/utils/errors";
 import { isPlainObject, readOptionalString, requireObject } from "@/lib/utils/input";
@@ -74,7 +75,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     const updated = updateOrganization(id, { name, description, settings });
     if (!updated) throw new NotFoundError("Organization");
 
-    logOrganizationUpdated(authContext.user.id, id, updated.name, changes);
+    logOrganizationUpdated(getRequestMeta(request.headers), authContext.user.id, id, updated.name, changes);
 
     return successResponse({ ...updated, role });
   } catch (error) {

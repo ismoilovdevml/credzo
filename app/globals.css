@@ -8,7 +8,9 @@
  * semantic class names.
  */
 @layer base {
-  :root {
+  /* `.light` re-applies the light palette inside a dark page (e.g. the theme preview in Settings). */
+  :root,
+  .light {
     --c-canvas: 244 246 248;
     --c-surface: 255 255 255;
     --c-surface-2: 247 249 251;

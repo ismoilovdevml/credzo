@@ -31,8 +31,6 @@ export interface ProjectCardProps {
   project: ProjectSummary;
   /** Reference time for the "updated" label (captured when the list loaded). */
   now: number;
-  /** Organisation name when known (the active organisation), otherwise a generic label is shown. */
-  organizationName: string | null;
   currentUserId: string | null;
 }
 
@@ -62,7 +60,7 @@ function EnvironmentBreakdown({ environments, total }: { environments: ProjectSu
   );
 }
 
-export function ProjectCard({ project, now, organizationName, currentUserId }: ProjectCardProps) {
+export function ProjectCard({ project, now, currentUserId }: ProjectCardProps) {
   const personal = project.organizationId === null;
   const privateInOrg = !personal && project.visibility === "private";
   const members =
@@ -96,7 +94,7 @@ export function ProjectCard({ project, now, organizationName, currentUserId }: P
             ) : (
               <Building2 className="h-3.5 w-3.5 flex-none" aria-hidden="true" />
             )}
-            <span className="truncate">{personal ? "Personal" : (organizationName ?? "Organisation")}</span>
+            <span className="truncate">{personal ? "Personal" : (project.organizationName ?? "Organisation")}</span>
             {privateInOrg && (
               <>
                 <span aria-hidden="true">·</span>

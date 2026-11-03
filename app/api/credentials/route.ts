@@ -12,6 +12,7 @@ import {
   requireProjectAccess,
 } from "@/lib/authorization";
 import { logCredentialCreated } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/rate-limit";
 import { CREDENTIAL_CONFIG } from "@/lib/config/constants";
 import { CREDENTIAL_ENVIRONMENTS } from "@/lib/types";
 import {
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
     const results: (CredentialView & { projectName: string })[] = [];
     for (const { project } of projects) {
       for (const credential of getProjectCredentials(project.id)) {
-        const view = toCredentialView(credential, project.id);
+        const view = toCredentialView(credential, project);
         if (environment && (view.environment ?? "none") !== environment) continue;
         if (query && !credentialMatchesQuery(view, query)) continue;
         results.push({ ...view, projectName: project.name });
@@ -91,6 +92,7 @@ export async function POST(request: NextRequest) {
     if (!credential) throw new Error("Credential insert returned no row");
 
     logCredentialCreated(
+      getRequestMeta(request.headers),
       authContext.user.id,
       credential.id,
       credential.name,
@@ -99,7 +101,7 @@ export async function POST(request: NextRequest) {
       project.organizationId ?? undefined
     );
 
-    return successResponse(toCredentialView(credential, project.id), 201);
+    return successResponse(toCredentialView(credential, project), 201);
   } catch (error) {
     return handleRouteError(error, "POST /api/credentials");
   }

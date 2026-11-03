@@ -3,7 +3,7 @@
 import { Eye, EyeOff } from "lucide-react";
 import { notify } from "@/components/Toast";
 import { CopyButton, IconButton, Spinner } from "@/components/ui";
-import { errorMessage } from "@/components/generator/api";
+import { errorMessage } from "@/lib/api-client";
 import { getServiceMetadata } from "@/lib/services";
 import type { ServiceType } from "@/lib/types";
 import { cn } from "@/lib/utils/cn";
@@ -87,9 +87,7 @@ export function FieldList({ entries, secrets }: FieldListProps) {
             <div key={entry.name} data-testid={`field-${entry.name}`} className={cn(ROW, "border-b border-line-soft last:border-b-0")}>
               <dt className={LABEL}>{entry.label}</dt>
               <dd className={cn(VALUE, "break-words", multiline)}>{entry.value}</dd>
-              <span data-testid={`copy-${entry.name}`} className="inline-flex">
-                <CopyButton value={entry.value ?? ""} label={`Copy ${lower}`} />
-              </span>
+              <CopyButton value={entry.value ?? ""} label={`Copy ${lower}`} data-testid={`copy-${entry.name}`} />
             </div>
           );
         }
@@ -135,14 +133,13 @@ export function FieldList({ entries, secrets }: FieldListProps) {
               >
                 {loading ? <Spinner className="h-4 w-4" /> : shown ? <EyeOff /> : <Eye />}
               </IconButton>
-              <span data-testid={`copy-${entry.name}`} className="inline-flex">
-                <CopyButton
-                  value={() => secrets.getSecret(entry.name)}
-                  label={`Copy ${lower}`}
-                  sensitive
-                  className="text-accent-ink"
-                />
-              </span>
+              <CopyButton
+                value={() => secrets.getSecret(entry.name)}
+                label={`Copy ${lower}`}
+                sensitive
+                className="text-accent-ink"
+                data-testid={`copy-${entry.name}`}
+              />
             </div>
           </div>
         );
