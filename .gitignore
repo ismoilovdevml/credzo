@@ -13,7 +13,7 @@ next-env.d.ts
 *.tsbuildinfo
 
 # Runtime data (SQLite) — never commit
-data/
+/data/
 .e2e-data/
 *.db
 *.db-shm

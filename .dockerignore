@@ -7,7 +7,7 @@ build
 next-env.d.ts
 
 # Runtime data and secrets
-data
+/data
 .e2e-data
 *.db
 *.db-shm
