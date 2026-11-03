@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Credzo">
+  <rect width="64" height="64" rx="14" fill="#0E7C70"/>
+  <path d="M23 28v-5a9 9 0 0 1 18 0v5" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/>
+  <rect x="17" y="28" width="30" height="22" rx="5" fill="#fff"/>
+  <circle cx="32" cy="37" r="3.2" fill="#0E7C70"/>
+  <rect x="30.4" y="38" width="3.2" height="6.5" rx="1.6" fill="#0E7C70"/>
+</svg>

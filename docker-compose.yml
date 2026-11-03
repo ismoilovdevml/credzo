@@ -1,0 +1,35 @@
+# Credzo — self-hosted credential vault.
+#
+#   cp .env.example .env
+#   # set CREDZO_ENCRYPTION_KEY (openssl rand -base64 32) and keep it safe:
+#   # losing it makes every stored secret unreadable.
+#   docker compose up -d --build
+#
+# The SQLite database lives in the named volume "credzo-data".
+
+services:
+  credzo:
+    build: .
+    image: credzo:latest
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      CREDZO_ENCRYPTION_KEY: ${CREDZO_ENCRYPTION_KEY:?Set CREDZO_ENCRYPTION_KEY in .env (openssl rand -base64 32)}
+      DATA_DIR: /app/data
+      COOKIE_SECURE: ${COOKIE_SECURE:-}
+    volumes:
+      - credzo-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  credzo-data:

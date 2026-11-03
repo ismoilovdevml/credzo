@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens. Each colour is an "R G B" triplet so Tailwind can apply
+ * opacity modifiers (e.g. `bg-accent/10`). See tailwind.config.ts for the
+ * semantic class names.
+ */
+@layer base {
+  :root {
+    --c-canvas: 244 246 248;
+    --c-surface: 255 255 255;
+    --c-surface-2: 247 249 251;
+    --c-track: 233 237 241;
+    --c-line: 226 230 236;
+    --c-line-soft: 238 241 244;
+    --c-line-strong: 213 219 227;
+    --c-ink: 22 32 46;
+    --c-ink-2: 58 69 86;
+    --c-muted: 86 97 115;
+    --c-accent: 14 124 112;
+    --c-accent-ink: 10 95 86;
+    --c-accent-soft: 230 244 241;
+    --c-on-accent: 255 255 255;
+    --c-success: 10 122 85;
+    --c-success-soft: 231 245 238;
+    --c-warn: 138 75 5;
+    --c-warn-soft: 253 243 227;
+    --c-danger: 180 35 24;
+    --c-danger-soft: 253 236 234;
+    --c-info: 36 87 197;
+    --c-info-soft: 234 240 252;
+    --c-violet: 98 57 181;
+    --c-violet-soft: 241 236 251;
+    color-scheme: light;
+  }
+
+  .dark {
+    --c-canvas: 16 21 28;
+    --c-surface: 23 29 38;
+    --c-surface-2: 25 32 42;
+    --c-track: 14 18 24;
+    --c-line: 34 43 55;
+    --c-line-soft: 30 37 48;
+    --c-line-strong: 44 54 70;
+    --c-ink: 230 234 240;
+    --c-ink-2: 195 203 214;
+    --c-muted: 154 165 180;
+    --c-accent: 45 181 163;
+    --c-accent-ink: 111 217 201;
+    --c-accent-soft: 21 49 45;
+    --c-on-accent: 11 26 23;
+    --c-success: 110 219 168;
+    --c-success-soft: 18 48 42;
+    --c-warn: 242 194 122;
+    --c-warn-soft: 58 44 20;
+    --c-danger: 244 163 154;
+    --c-danger-soft: 58 31 30;
+    --c-info: 157 184 245;
+    --c-info-soft: 23 42 74;
+    --c-violet: 199 182 242;
+    --c-violet-soft: 42 35 64;
+    color-scheme: dark;
+  }
+
+  * {
+    @apply border-line;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply min-h-screen bg-canvas font-sans text-ink antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  ::selection {
+    @apply bg-accent/20;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent/50 ring-offset-2 ring-offset-surface;
+  }
+
+  input[type="search"]::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Shared field chrome for Input, Select and Textarea. */
+  .field-control {
+    @apply w-full rounded-lg border border-line-strong bg-surface px-3 text-[14.5px] text-ink transition-colors placeholder:text-muted/80 hover:border-muted/60 focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/20 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:bg-surface-2 disabled:opacity-70 aria-[invalid=true]:border-danger aria-[invalid=true]:focus:ring-danger/20;
+  }
+}
