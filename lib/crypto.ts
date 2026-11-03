@@ -61,12 +61,21 @@ export async function encryptData(data: string, password: string): Promise<strin
     resultArray.set(iv, salt.length);
     resultArray.set(encryptedArray, salt.length + iv.length);
 
-    // Convert to base64
-    return btoa(String.fromCharCode(...resultArray));
-  } catch (error) {
-    console.error("Encryption error:", error);
+    return bytesToBase64(resultArray);
+  } catch {
     throw new Error("Failed to encrypt data");
   }
+}
+
+// Spreading a large array into String.fromCharCode overflows the call stack,
+// so convert in fixed-size chunks.
+function bytesToBase64(bytes: Uint8Array): string {
+  const CHUNK = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
 }
 
 /**
@@ -95,8 +104,7 @@ export async function decryptData(encryptedData: string, password: string): Prom
     // Convert to string
     const decoder = new TextDecoder();
     return decoder.decode(decryptedBuffer);
-  } catch (error) {
-    console.error("Decryption error:", error);
+  } catch {
     throw new Error("Invalid password or corrupted data");
   }
 }

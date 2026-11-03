@@ -83,6 +83,10 @@ class Session {
   post(path, body) {
     return this.call("POST", path, body ?? {});
   }
+
+  put(path, body) {
+    return this.call("PUT", path, body ?? {});
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -97,6 +101,8 @@ const log = (msg) => process.stdout.write(`${msg}\n`);
 // ---------------------------------------------------------------------------
 // Dataset
 // ---------------------------------------------------------------------------
+
+const ORG_NAME = "Acme Studio";
 
 const OWNER = {
   username: "dilnoza",
@@ -266,7 +272,11 @@ async function main() {
   const orgList = Array.isArray(orgs?.data) ? orgs.data : [];
   const org = orgList[0];
   if (!org?.id) throw new Error("The demo owner has no organization.");
-  log(`+ organization "${org.name}"`);
+  await owner.session.put(`/api/organizations/${org.id}`, {
+    name: ORG_NAME,
+    description: "Product studio running payments, data and mobile services.",
+  });
+  log(`+ organization "${ORG_NAME}"`);
 
   const teammates = [];
   for (const mate of TEAMMATES) {

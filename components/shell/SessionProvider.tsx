@@ -24,9 +24,20 @@ export interface SessionOrganization {
   description?: string;
 }
 
+/** An organisation the user belongs to, with their role in it (for the organisation switcher). */
+export interface SessionMembership {
+  id: string;
+  name: string;
+  slug: string;
+  /** "owner" | "admin" | "member" | "viewer". */
+  role: string;
+}
+
 export interface SessionContextValue {
   user: SessionUser | null;
   organization: SessionOrganization | null;
+  /** Every organisation the user belongs to; empty when they have none. */
+  organizations: SessionMembership[];
   /** Role in the current organisation: "owner" | "admin" | "member" | "viewer", or null. */
   role: string | null;
   /** Platform admin, or owner/admin of the current organisation. Gates the Admin nav group. */
@@ -44,6 +55,8 @@ export interface SessionContextValue {
   refreshProjectCount: () => Promise<void>;
 }
 
+const NO_ORGANIZATIONS: SessionMembership[] = [];
+
 const SessionContext = createContext<SessionContextValue | null>(null);
 
 type Json = Record<string, unknown>;
@@ -54,6 +67,7 @@ const str = (value: unknown): string => (typeof value === "string" ? value : "")
 interface ParsedSession {
   user: SessionUser;
   organization: SessionOrganization | null;
+  organizations: SessionMembership[];
   role: string | null;
   isPlatformAdmin: boolean;
 }
@@ -86,9 +100,15 @@ function parseSession(payload: unknown): ParsedSession | null {
       ? { id: str(rawOrg.id), name: str(rawOrg.name), slug: str(rawOrg.slug), description: str(rawOrg.description) || undefined }
       : null;
 
+  const organizations: SessionMembership[] = Array.isArray(body.organizations)
+    ? body.organizations
+        .filter((entry): entry is Json => isObject(entry) && str(entry.id) !== "")
+        .map((entry) => ({ id: str(entry.id), name: str(entry.name), slug: str(entry.slug), role: str(entry.role) }))
+    : [];
+
   const isPlatformAdmin = typeof body.isPlatformAdmin === "boolean" ? body.isPlatformAdmin : user.role === "platform_admin";
 
-  return { user, organization, role: str(body.organizationRole) || null, isPlatformAdmin };
+  return { user, organization, organizations, role: str(body.organizationRole) || null, isPlatformAdmin };
 }
 
 function redirectToLogin(router: ReturnType<typeof useRouter>) {
@@ -154,6 +174,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return {
       user: session?.user ?? null,
       organization: session?.organization ?? null,
+      organizations: session?.organizations ?? NO_ORGANIZATIONS,
       role,
       isPlatformAdmin,
       isAdmin: isPlatformAdmin || role === "owner" || role === "admin",

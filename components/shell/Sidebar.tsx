@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Activity, FolderClosed, House, KeyRound, Shield, SlidersHorizontal, Users, type LucideIcon } from "lucide-react";
-import { Avatar } from "@/components/ui/avatar";
 import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils/cn";
+import { OrgSwitcher } from "./OrgSwitcher";
 import { useSession } from "./SessionProvider";
 import { UserMenu } from "./UserMenu";
 
@@ -17,13 +17,6 @@ interface NavItem {
   exact?: boolean;
   count?: number | null;
 }
-
-const ROLE_LABELS: Record<string, string> = {
-  owner: "Owner",
-  admin: "Admin",
-  member: "Member",
-  viewer: "Viewer",
-};
 
 function isActive(pathname: string, item: NavItem) {
   if (item.exact) return pathname === item.href;
@@ -79,7 +72,7 @@ function NavGroup({
 /** Sidebar body, shared by the desktop rail and the mobile drawer. */
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const { user, organization, role, isAdmin, isPlatformAdmin, projectCount } = useSession();
+  const { user, isAdmin, projectCount } = useSession();
 
   const mainItems: NavItem[] = [
     { label: "Overview", href: "/dashboard", icon: House, exact: true },
@@ -93,19 +86,11 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     { label: "Audit log", href: "/dashboard/audit", icon: Activity },
   ];
 
-  const roleLabel = isPlatformAdmin && !role ? "Platform admin" : role ? (ROLE_LABELS[role] ?? role) : "Member";
-
   return (
     <div className="flex h-full flex-col gap-[18px] px-3.5 py-5">
       <Logo href="/dashboard" className="px-1.5" />
 
-      <div className="flex min-h-[48px] items-center gap-2.5 rounded-[10px] border border-line bg-surface-2 p-2.5">
-        <Avatar name={organization?.name || "Credzo"} tone="ink" shape="square" size="sm" className="h-7 w-7 text-xs" />
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-[14px] font-semibold text-ink">{organization?.name ?? "No organisation"}</span>
-          <span className="truncate text-[12px] text-muted">Organisation · {roleLabel}</span>
-        </span>
-      </div>
+      <OrgSwitcher onNavigate={onNavigate} />
 
       <NavGroup label="Main" items={mainItems} pathname={pathname} onNavigate={onNavigate} />
       {isAdmin && (

@@ -2008,7 +2008,7 @@ export function getAdminStats(range: StatsRange, organizationId: string | null):
   const revealRows = database
     .prepare(
       `SELECT a.user_id AS key, a.timestamp FROM audit_logs a
-       WHERE a.action = 'revealed' AND a.timestamp >= @since AND a.user_id IS NOT NULL AND ${auditScope}
+       WHERE a.action IN ('accessed', 'revealed') AND a.timestamp >= @since AND a.user_id IS NOT NULL AND ${auditScope}
        ORDER BY a.timestamp ASC
        LIMIT ${ALERT_SCAN_LIMIT}`
     )
