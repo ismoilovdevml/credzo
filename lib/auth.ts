@@ -30,7 +30,7 @@ import {
   updateUserLastLogin,
 } from "./db";
 import { generateToken, hashBackupCode, safeEqual, sha256Hex, verifyTotp } from "./crypto-server";
-import { loginLimiter, passwordCheckLimiter, twoFactorLimiter } from "./rate-limit";
+import { isClientIpTrusted, loginLimiter, passwordCheckLimiter, twoFactorLimiter } from "./rate-limit";
 import { SESSION_CONFIG } from "./config/constants";
 import { ConflictError, ValidationError } from "./utils/errors";
 import type { AuthContext, PublicUser, User } from "./types";
@@ -476,7 +476,9 @@ export async function login(
   meta: RequestMeta = {}
 ): Promise<LoginResult> {
   const identifier = data.identifier.trim();
-  const limiterKey = `${meta.ipAddress ?? "unknown"}|${identifier.toLowerCase()}`;
+  // Without a trusted proxy the IP is client-controlled, so limit per account only.
+  const ipPart = isClientIpTrusted() ? (meta.ipAddress ?? "unknown") : "*";
+  const limiterKey = `${ipPart}|${identifier.toLowerCase()}`;
 
   const limit = loginLimiter.check(limiterKey);
   if (limit.limited) return { status: "rate_limited", retryAfterSeconds: limit.retryAfterSeconds };
@@ -539,13 +541,14 @@ export function completeTwoFactorLogin(
   data: { challenge: string; code: string },
   meta: RequestMeta = {}
 ): TwoFactorLoginResult {
-  const ipKey = meta.ipAddress ?? "unknown";
-  const limit = twoFactorLimiter.check(ipKey);
-  if (limit.limited) return { status: "rate_limited", retryAfterSeconds: limit.retryAfterSeconds };
-
   const challenge = getLoginChallenge(data.challenge);
   const user = challenge ? getUserById(challenge.userId) : null;
   if (!challenge || !user) return { status: "invalid_challenge" };
+
+  // Per IP behind a trusted proxy, otherwise per account (the IP could be spoofed).
+  const ipKey = isClientIpTrusted() ? (meta.ipAddress ?? "unknown") : `user:${user.id}`;
+  const limit = twoFactorLimiter.check(ipKey);
+  if (limit.limited) return { status: "rate_limited", retryAfterSeconds: limit.retryAfterSeconds };
 
   const method = verifySecondFactor(user.id, data.code);
   if (!method) {

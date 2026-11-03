@@ -3,10 +3,10 @@ import {
   handleRouteError,
   successResponse,
   errorResponse,
-  getClientIp,
   getUserAgent,
 } from "@/lib/middleware";
 import { logAudit } from "@/lib/audit";
+import { clientRateKey, getRequestIp } from "@/lib/rate-limit";
 import {
   SHARE_AUDIT_ACTIONS,
   SHARE_AUDIT_RESOURCE,
@@ -29,15 +29,18 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const ip = getClientIp(request);
-    const retryAfter = consumeRateLimit(`share-open:${ip}`, OPEN_LIMIT_PER_MINUTE, 60_000);
+    const { id } = await params;
+    const retryAfter = consumeRateLimit(
+      `share-open:${clientRateKey(request.headers, id)}`,
+      OPEN_LIMIT_PER_MINUTE,
+      60_000
+    );
     if (retryAfter > 0) {
       const limited = errorResponse("Too many requests. Try again shortly.", 429);
       limited.headers.set("Retry-After", String(retryAfter));
       return limited;
     }
 
-    const { id } = await params;
     if (!isValidShareId(id)) {
       return errorResponse("Link not found", 404, "not_found");
     }
@@ -58,7 +61,7 @@ export async function POST(
       resourceType: SHARE_AUDIT_RESOURCE,
       resourceId: id,
       details: { viewsLeft: result.payload.viewsLeft },
-      ipAddress: ip,
+      ipAddress: getRequestIp(request.headers),
       userAgent: getUserAgent(request),
     });
 

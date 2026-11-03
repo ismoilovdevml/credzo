@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateSession } from "./auth";
+import { getRequestIp } from "./rate-limit";
 import { ERROR_MESSAGES, HTTP_STATUS, REQUEST_LIMITS, SESSION_CONFIG } from "./config/constants";
 import { PayloadTooLargeError, ValidationError, isAppError } from "./utils/errors";
 import type { AuthContext } from "./types";
@@ -118,15 +119,10 @@ export function handleRouteError(error: unknown, context: string): NextResponse 
 }
 
 /**
- * Get client IP address from request (first hop of X-Forwarded-For).
+ * Get client IP address from request (see getRequestIp for TRUST_PROXY handling).
  */
 export function getClientIp(request: NextRequest): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first;
-  }
-  return request.headers.get("x-real-ip") || "unknown";
+  return getRequestIp(request.headers);
 }
 
 /**

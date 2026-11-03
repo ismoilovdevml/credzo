@@ -17,6 +17,7 @@ services:
       CREDZO_ENCRYPTION_KEY: ${CREDZO_ENCRYPTION_KEY:?Set CREDZO_ENCRYPTION_KEY in .env (openssl rand -base64 32)}
       DATA_DIR: /app/data
       COOKIE_SECURE: ${COOKIE_SECURE:-}
+      TRUST_PROXY: ${TRUST_PROXY:-0}
     volumes:
       - credzo-data:/app/data
     restart: unless-stopped

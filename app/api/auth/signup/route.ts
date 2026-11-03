@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertPasswordPolicy, PASSWORD_MAX_LENGTH, setSessionCookie, signup, toPublicUser } from "@/lib/auth";
 import { handleRouteError, readJsonBody } from "@/lib/middleware";
-import { getRequestMeta, rateLimitedResponse, signupLimiter } from "@/lib/rate-limit";
+import { clientRateKey, getRequestMeta, rateLimitedResponse, signupLimiter } from "@/lib/rate-limit";
 import { ERROR_MESSAGES, HTTP_STATUS, INVITATION_CONFIG, REGEX_PATTERNS } from "@/lib/config/constants";
 import { readRequiredEmail, readRequiredString, requireObject } from "@/lib/utils/input";
 import { ValidationError } from "@/lib/utils/errors";
@@ -14,7 +14,8 @@ import { ValidationError } from "@/lib/utils/errors";
 export async function POST(request: NextRequest) {
   try {
     const meta = getRequestMeta(request.headers);
-    const limit = signupLimiter.check(meta.ipAddress);
+    const limiterKey = clientRateKey(request.headers, "all");
+    const limit = signupLimiter.check(limiterKey);
     if (limit.limited) return rateLimitedResponse(limit.retryAfterSeconds);
 
     const body = requireObject(await readJsonBody(request));
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     assertPasswordPolicy(password);
 
     const { user, token } = await signup({ username, email, password, firstName, lastName }, meta);
-    signupLimiter.hit(meta.ipAddress);
+    signupLimiter.hit(limiterKey);
 
     const response = NextResponse.json(
       { success: true, user: toPublicUser(user) },

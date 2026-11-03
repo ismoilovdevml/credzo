@@ -98,16 +98,45 @@ export const signupLimiter = getLimiter("signup", 10, 60 * 60 * 1000);
 export const passwordCheckLimiter = getLimiter("password-check", 5, 10 * 60 * 1000);
 
 /**
- * Best-effort client IP. Uses the first X-Forwarded-For hop (set by the
- * reverse proxy in front of Credzo), then X-Real-IP.
+ * Number of reverse proxies in front of Credzo that append to X-Forwarded-For
+ * (TRUST_PROXY, default 0). Next.js only fills X-Forwarded-For with the socket
+ * address when the client did not send one, so without a trusted proxy the
+ * header is client-controlled and must not key rate limits.
+ */
+const TRUSTED_PROXY_HOPS = (() => {
+  const hops = Number.parseInt(process.env.TRUST_PROXY ?? "0", 10);
+  return Number.isFinite(hops) && hops > 0 ? hops : 0;
+})();
+
+/** Whether getRequestIp reflects the real client (a trusted proxy set it). */
+export function isClientIpTrusted(): boolean {
+  return TRUSTED_PROXY_HOPS > 0;
+}
+
+/**
+ * Client IP for audit records and rate limits. With TRUST_PROXY=N the address
+ * is the N-th X-Forwarded-For entry from the right (the one the outermost
+ * trusted proxy saw); without it this is best effort and may be spoofed.
  */
 export function getRequestIp(headers: Headers): string {
-  const forwarded = headers.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first;
+  const hops = (headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((hop) => hop.trim())
+    .filter(Boolean);
+  if (hops.length > 0) {
+    const index = TRUSTED_PROXY_HOPS > 0 ? Math.max(0, hops.length - TRUSTED_PROXY_HOPS) : hops.length - 1;
+    return hops[index];
   }
   return headers.get("x-real-ip")?.trim() || "unknown";
+}
+
+/**
+ * Rate-limit key for a request: the client IP when it can be trusted,
+ * otherwise the given fallback (e.g. the targeted username or resource) so a
+ * spoofed header cannot mint fresh buckets.
+ */
+export function clientRateKey(headers: Headers, fallback: string): string {
+  return isClientIpTrusted() ? getRequestIp(headers) : fallback;
 }
 
 export function getRequestUserAgent(headers: Headers): string {

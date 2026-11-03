@@ -3,8 +3,8 @@ import {
   handleRouteError,
   successResponse,
   errorResponse,
-  getClientIp,
 } from "@/lib/middleware";
+import { clientRateKey } from "@/lib/rate-limit";
 import { consumeRateLimit, getShareMeta, isValidShareId } from "@/lib/shares";
 
 const META_LIMIT_PER_MINUTE = 60;
@@ -15,8 +15,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const retryAfter = consumeRateLimit(
-      `share-meta:${getClientIp(request)}`,
+      `share-meta:${clientRateKey(request.headers, id)}`,
       META_LIMIT_PER_MINUTE,
       60_000
     );
@@ -26,7 +27,6 @@ export async function GET(
       return limited;
     }
 
-    const { id } = await params;
     const meta = isValidShareId(id)
       ? getShareMeta(id)
       : ({ exists: false, reason: "not_found" } as const);

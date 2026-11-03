@@ -88,8 +88,10 @@ export function useTheme() {
   const prefersDark = useSyncExternalStore(subscribeSystem, systemPrefersDark, () => false);
   const resolvedTheme: ResolvedTheme = theme === "system" ? (prefersDark ? "dark" : "light") : theme;
 
+  // During hydration `theme` is the server snapshot ("system"), so apply the
+  // stored value rather than the rendered one to keep the no-flash script's class.
   useEffect(() => {
-    if (theme === "system") applyTheme("system");
+    applyTheme(getThemeSnapshot());
   }, [theme, prefersDark]);
 
   const toggleTheme = useCallback(() => {

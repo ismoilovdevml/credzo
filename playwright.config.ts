@@ -45,6 +45,8 @@ export default defineConfig({
           // Fixed, test-only key. Never use it for real data.
           CREDZO_ENCRYPTION_KEY: "ZTJlLXRlc3Qta2V5LWRvLW5vdC11c2UtaW4tcHJvZCE=",
           COOKIE_SECURE: "false",
+          // Specs give each test its own X-Forwarded-For address to keep rate limits apart.
+          TRUST_PROXY: "1",
           NEXT_TELEMETRY_DISABLED: "1",
         },
       },

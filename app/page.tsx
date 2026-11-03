@@ -9,7 +9,7 @@ import { SecuritySection } from "@/components/landing/SecuritySection";
 import { ServicesStrip } from "@/components/landing/ServicesStrip";
 
 export const metadata: Metadata = {
-  title: "Self-hosted credential vault for teams",
+  title: { absolute: "Credzo · Self-hosted credential vault for teams" },
   description:
     "Credzo keeps servers, databases and API keys encrypted and organised by project and environment, with role-based access and a full audit trail. Self-hosted with Docker.",
 };
