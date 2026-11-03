@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
 import {
+  acceptPendingInvitations,
   cleanupExpiredSessions,
   consumeBackupCode,
   createAuditLog,
@@ -226,9 +227,29 @@ function primaryOrganizationId(userId: string): string | undefined {
   return getUserOrganizationMemberships(userId)[0]?.organization.id;
 }
 
-/** Creates a session for an authenticated user and returns the raw token for the cookie. */
+/** Adds the user to every organization with a pending invitation for their email. */
+function claimInvitations(user: User, meta: RequestMeta): void {
+  for (const invitation of acceptPendingInvitations(user.id, user.email)) {
+    createAuditLog({
+      userId: user.id,
+      organizationId: invitation.organizationId,
+      action: AuditAction.CREATED,
+      resourceType: AuditResource.MEMBER,
+      resourceId: user.id,
+      details: { context: "invitation_accepted", invitationId: invitation.id, email: invitation.email, role: invitation.role },
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+    });
+  }
+}
+
+/**
+ * Creates a session for an authenticated user (claiming pending invitations
+ * first) and returns the raw token for the cookie.
+ */
 function startSession(user: User, persistent: boolean, meta: RequestMeta, method: string): string {
   cleanupExpiredSessions();
+  claimInvitations(user, meta);
 
   const token = generateToken(SESSION_CONFIG.TOKEN_LENGTH);
   createSession({

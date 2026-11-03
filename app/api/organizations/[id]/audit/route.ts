@@ -7,6 +7,7 @@ import {
   getMemberActivitySummary,
   searchAuditLogs,
 } from "@/lib/audit";
+import { countAuditLogs } from "@/lib/db";
 import { AUDIT_CONFIG } from "@/lib/config/constants";
 import { AuthorizationError, ValidationError } from "@/lib/utils/errors";
 import { parseIntegerParam } from "@/lib/utils/input";
@@ -75,7 +76,7 @@ export async function GET(
     }
 
     const logs = getAuditLog({ organizationId, action, resourceType, userId, limit, offset });
-    const total = getAuditLog({ organizationId, action, resourceType, userId }).length;
+    const total = countAuditLogs({ organizationId, action, resourceType, userId });
 
     return successResponse({
       logs,

@@ -20,7 +20,7 @@ import type {
 } from "./types";
 import { CREDENTIAL_ENVIRONMENTS } from "./types";
 import { CREDENTIAL_CONFIG } from "./config/constants";
-import { getServiceMetadata } from "./services";
+import { isSecretField } from "./utils/credentials";
 import { ValidationError } from "./utils/errors";
 import {
   decryptString,
@@ -1112,23 +1112,6 @@ export function getProjectById(id: string): Project | null {
   return row ? mapProjectFromDb(row) : null;
 }
 
-/**
- * Projects the user can open: ones they own, ones in an organization they
- * belong to, and ones they were added to as a project member.
- */
-export function getAccessibleProjects(userId: string): Project[] {
-  const rows = getDb()
-    .prepare(
-      `SELECT p.* FROM projects p
-       WHERE p.owner_id = @userId
-         OR EXISTS (SELECT 1 FROM organization_members m WHERE m.organization_id = p.organization_id AND m.user_id = @userId)
-         OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = @userId)
-       ORDER BY p.name COLLATE NOCASE`
-    )
-    .all({ userId }) as ProjectRow[];
-  return rows.map(mapProjectFromDb);
-}
-
 export function createProject(
   name: string,
   description: string = "",
@@ -1223,20 +1206,12 @@ function serializeLinkedServers(linkedServers: string[] | undefined): string | n
   return linkedServers && linkedServers.length > 0 ? JSON.stringify(linkedServers) : null;
 }
 
-/**
- * Secret fields are the service's password-type fields; services without a
- * definition treat every field as secret.
- */
-function secretFieldNames(type: ServiceType, fields: Record<string, string>): string[] {
-  const secretFields = (getServiceMetadata(type)?.fields ?? [])
-    .filter((field) => field.type === "password")
-    .map((field) => field.name);
-  return secretFields.length > 0 ? secretFields : Object.keys(fields);
-}
-
+/** True when any secret field (see isSecretField) was added, removed or changed. */
 function secretsChanged(type: ServiceType, before: Record<string, string>, after: Record<string, string>): boolean {
-  const names = new Set([...secretFieldNames(type, before), ...secretFieldNames(type, after)]);
-  return [...names].some((name) => String(before[name] ?? "") !== String(after[name] ?? ""));
+  const names = new Set([...Object.keys(before), ...Object.keys(after)]);
+  return [...names].some(
+    (name) => isSecretField(type, name) && String(before[name] ?? "") !== String(after[name] ?? "")
+  );
 }
 
 export function getProjectCredentials(projectId: string): Credential[] {
@@ -1472,46 +1447,41 @@ export function createAuditLog(data: {
     );
 }
 
-export function getAuditLogs(filters?: {
+export interface AuditLogFilters {
   organizationId?: string;
   userId?: string;
   action?: string;
   resourceType?: string;
   /** ISO timestamp; only events at or after it. */
   since?: string;
-  limit?: number;
-  offset?: number;
-}): AuditLog[] {
-  let query = "SELECT * FROM audit_logs WHERE 1=1";
+}
+
+function auditLogWhere(filters: AuditLogFilters = {}): { where: string; params: SqlValue[] } {
+  const conditions: string[] = [];
   const params: SqlValue[] = [];
+  const add = (condition: string, value: string | undefined) => {
+    if (!value) return;
+    conditions.push(condition);
+    params.push(value);
+  };
 
-  if (filters?.organizationId) {
-    query += " AND organization_id = ?";
-    params.push(filters.organizationId);
-  }
-  if (filters?.userId) {
-    query += " AND user_id = ?";
-    params.push(filters.userId);
-  }
-  if (filters?.action) {
-    query += " AND action = ?";
-    params.push(filters.action);
-  }
-  if (filters?.resourceType) {
-    query += " AND resource_type = ?";
-    params.push(filters.resourceType);
-  }
-  if (filters?.since) {
-    query += " AND timestamp >= ?";
-    params.push(filters.since);
-  }
+  add("organization_id = ?", filters.organizationId);
+  add("user_id = ?", filters.userId);
+  add("action = ?", filters.action);
+  add("resource_type = ?", filters.resourceType);
+  add("timestamp >= ?", filters.since);
 
-  query += " ORDER BY timestamp DESC";
+  return { where: conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "", params };
+}
+
+export function getAuditLogs(filters?: AuditLogFilters & { limit?: number; offset?: number }): AuditLog[] {
+  const { where, params } = auditLogWhere(filters);
+  let query = `SELECT * FROM audit_logs ${where} ORDER BY timestamp DESC`;
 
   if (filters?.limit) {
     query += " LIMIT ?";
     params.push(filters.limit);
-    if (filters?.offset) {
+    if (filters.offset) {
       query += " OFFSET ?";
       params.push(filters.offset);
     }
@@ -1531,6 +1501,13 @@ export function getAuditLogs(filters?: {
     userAgent: row.user_agent ?? undefined,
     timestamp: row.timestamp,
   }));
+}
+
+/** Number of audit events matching the filters (for pagination totals). */
+export function countAuditLogs(filters?: AuditLogFilters): number {
+  const { where, params } = auditLogWhere(filters);
+  const row = getDb().prepare(`SELECT COUNT(*) AS count FROM audit_logs ${where}`).get(...params) as { count: number };
+  return row.count;
 }
 
 // ===== Sessions =====
@@ -1771,6 +1748,39 @@ export function updateInvitationStatus(token: string, status: string): Invitatio
     .prepare("UPDATE invitations SET status = ?, responded_at = ? WHERE token = ?")
     .run(status, new Date().toISOString(), token);
   return getInvitationByToken(token);
+}
+
+/**
+ * Accepts every pending, unexpired invitation addressed to `email`: the user
+ * joins each organization with the invited role (unless already a member) and
+ * the invitations are marked accepted. Returns the invitations it consumed.
+ */
+export function acceptPendingInvitations(userId: string, email: string): Invitation[] {
+  const database = getDb();
+  const now = new Date().toISOString();
+
+  return database.transaction(() => {
+    const invitations = (
+      database
+        .prepare("SELECT * FROM invitations WHERE email = ? COLLATE NOCASE AND status = 'pending' AND expires_at > ?")
+        .all(email, now) as InvitationRow[]
+    ).map(mapInvitationFromDb);
+
+    for (const invitation of invitations) {
+      if (!getOrganizationMember(invitation.organizationId, userId)) {
+        addOrganizationMember({
+          organizationId: invitation.organizationId,
+          userId,
+          role: invitation.role,
+          invitedBy: invitation.invitedBy,
+        });
+      }
+      database
+        .prepare("UPDATE invitations SET status = 'accepted', responded_at = ? WHERE id = ?")
+        .run(now, invitation.id);
+    }
+    return invitations;
+  })();
 }
 
 // ===== Account data =====
